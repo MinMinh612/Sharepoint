@@ -1,0 +1,28 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "a69324d2-ece8-4e65-942b-9594c7143e10",
+  "alias": "LastWebPart",
+  "componentType": "WebPart",
+
+  "version": "*",
+  "manifestVersion": 2,
+
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
+  "supportsThemeVariants": true,
+
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Advanced" },
+    "title": { "default": "Last" },
+    "description": { "default": "Last description" },
+    "officeFabricIconFontName": "Page",
+    "properties": {
+      "description": "Last",
+      "Price": "Multi-line text field",
+      "Total": true,
+      "Status": "2",
+      "Approve": true
+    }
+  }]
+}

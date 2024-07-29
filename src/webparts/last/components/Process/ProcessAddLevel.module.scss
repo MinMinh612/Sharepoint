@@ -1,0 +1,112 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.formContainerAdd {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+h1 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.actionButtonsAdd {
+  display: flex;
+  gap: 60px; 
+  padding: 10px;
+  border-top: 1px solid #beb9b99a;
+  border-bottom: 1px solid #beb9b99a;
+  background-color: #ffffff;
+
+  .btn {
+    padding: 6px; 
+    border-radius: 4px;
+    color: #333;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .btnAdd {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    &:hover {
+      background-color: #218838;
+    }
+  }
+
+  .btnCancel {
+    background-color: transparent; /* Nền trong suốt */
+    border: 1px solid #dc3545;
+    &:hover {
+      background-color: #bb8b6b9d; 
+    }
+    border: none;
+    margin-left: 10px;
+  }
+
+  button {
+    background-color: #dc3545;
+    color: #fff;
+    &:hover {
+      background-color: #c82333;
+    }
+  }
+
+  button[disabled] {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    margin-left: auto; /* Đẩy checkbox sang bên phải */
+    
+    label {
+      margin-right: 10px;
+      font-size: 12px;
+    }
+  
+    input {
+      margin-left: 5px;
+    }
+  }
+}
+
+.formGroup {
+  margin-bottom: 15px;
+
+  label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 10px; /* Đảm bảo padding giống nhau */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box; /* Đảm bảo padding và border được tính vào chiều rộng tổng */
+  }
+
+  select {
+    /* Cụ thể cho select, nếu cần */
+    -webkit-appearance: none; /* Xóa các kiểu dáng mặc định trên các trình duyệt */
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #ffffff; /* Nền trắng để tương thích với các input khác */
+  }
+
+  input:disabled, select:disabled {
+    background-color: #e9ecef;
+  }
+}

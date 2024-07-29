@@ -1,0 +1,144 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+// Style the container for the process component
+.processContainer {
+  padding: 20px;
+}
+
+.formContainer {
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.actionButtons {
+  display: flex;
+  gap: 10px; 
+  padding: 10px;
+  // border-radius: 4px;
+  // margin-bottom: 0;
+  border-top: 1px solid #beb9b99a;
+  border-bottom: 1px solid #beb9b99a;
+  background-color: #ffffff;
+}
+
+.btn {
+  padding: 6px; 
+  border-radius: 4px;
+  color: #333;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btnAdd {
+  background-color: #90ee90; /* Light green background */
+}
+
+.btnEdit, .btnDelete {
+  background-color: transparent;
+  border: 1px solid #ffffff;
+  &:hover {
+    background-color: #bb8b6b9d; 
+  }
+}
+
+.btn:hover {
+  opacity: 0.8;
+}
+
+.tableContainer {
+  margin: 20px;
+}
+
+.tableContainer h1 {
+  font-size: 18px;
+  margin: 16px 0 8px 0;
+  color: #333;
+  font-weight: bold;
+  background-color: #ffffff;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.tableContainer table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+}
+
+.tableContainer thead {
+  background-color: #ffffff;
+  color: #333;
+  font-weight: bold;
+}
+
+.tableContainer th {
+  padding: 8px;
+  border: none;
+  font-size: 14px;
+  text-align: center;
+}
+
+.tableContainer th:last-child {
+  width: 150px; 
+}
+
+.tableContainer tbody tr:nth-child(odd) {
+  background-color: #f9f9f9;
+}
+
+.tableContainer tbody tr:nth-child(even) {
+  background-color: #ffffff;
+}
+
+.tableContainer td {
+  padding: 8px;
+  border-bottom: 1px solid #e6e6e6;
+  border-left: 1px solid #beb8b8;
+  border-right: 1px solid #beb8b8;
+  vertical-align: middle;
+  font-size: 14px;
+  text-align: center;
+}
+
+.tableContainer td input {
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #ffffff;
+}
+
+.tableContainer td button {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.tableContainer td button:hover {
+  opacity: 0.8;
+}
+
+.tableContainer select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: #f9f9f9; 
+  color: #333;
+  box-sizing: border-box;
+  appearance: none; /* Xóa mũi tên xuống mặc định */
+  -webkit-appearance: none; /* Xóa mũi tên trên các trình duyệt WebKit */
+  -moz-appearance: none; /* Xóa mũi tên trên Firefox */
+  cursor: default;
+}
+
+.tableContainer select:disabled {
+  background-color: #f9f9f9; 
+  color: #666;
+}

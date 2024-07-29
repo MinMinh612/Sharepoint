@@ -1,0 +1,96 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.last {
+  overflow: auto;
+  padding: 1em;
+  color: "[theme:bodyText, default: #323130]";
+  color: var(--bodyText);
+  &.teams {
+    font-family: $ms-font-family-fallbacks;
+  }
+}
+
+.welcome {
+  text-align: center;
+  flex-grow: 1;
+}
+
+.welcomeImage {
+  width: 100%;
+  max-width: 420px;
+}
+
+.header {
+  display: flex;
+  justify-content: center; 
+  margin-bottom: 10px; 
+}
+
+.workflowButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px; 
+}
+
+.workflowButton {
+  background-color: #0078d4; 
+  color: white; 
+  border: none; 
+  padding: 10px 20px; 
+  font-size: 14px; 
+  cursor: pointer; 
+  padding-left: 10px;
+}
+
+.workflowButton:hover {
+  background-color: #005a9e; 
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table-container th, .table-container td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+
+.links {
+  a {
+    text-decoration: none;
+    color: "[theme:link, default:#03787c]";
+    color: var(--link); // note: CSS Custom Properties support is limited to modern browsers only
+
+    &:hover {
+      text-decoration: underline;
+      color: "[theme:linkHovered, default: #014446]";
+      color: var(--linkHovered); // note: CSS Custom Properties support is limited to modern browsers only
+    }
+  }
+}
+
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+/* Định kiểu cho nhãn với class "required" */
+.label.required::after {
+  content: "*";
+  color: red;
+  margin-left: 3px;
+}
+
+/* Định kiểu cho nhãn trong một nhóm form */
+.form-group label {
+  display: inline-block;
+  width: 120px;
+  text-align: right;
+  margin-right: 10px;
+}

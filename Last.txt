@@ -1,0 +1,291 @@
+Last.tsx
+
+import * as React from 'react';
+import styles from './Last.module.scss';
+import type { ILastProps } from './ILastProps';
+import { escape } from '@microsoft/sp-lodash-subset';
+import FormView from './Views/LastAllView';
+import SuggestionView from './Views/LastSuggestionView';
+import ApproveLevel1View from './Views/LastApproveLevel1';
+import ApproveLevel2View from './Views/LastApproveLevel2';
+import SuggestionViewProcessLevel1 from './Views/ProcessLevel1SuggestionView';
+import ApproveLevel1ViewProcessLevel1 from './Views/ProcessLevel1AppoveLevel1';
+
+
+import type { IFormData } from './IFormData';
+
+interface ILastState {
+  formDataList: IFormData[];
+  currentView: 'form' | 'suggestion' | 'approveLevel1' | 'approveLevel2' | 'SuggestionViewProcessLevel1'| 'ApproveLevel1ViewProcessLevel1';
+  workflowProcess: 'document' | 'purchase';
+}
+
+export default class Last extends React.Component<ILastProps, ILastState> {
+  constructor(props: ILastProps) {
+    super(props);
+    this.state = {
+      formDataList: [{
+        currentUserEmail: props.userEmail,
+        description: '',
+        Amount: '',
+        Price: '',
+        Total: 0,
+        Status: '',
+        Approve: '',
+        Counselors: '',
+        CounselorNote: '',
+        Approver1: '',
+        Approver1Note: '',
+        Approver2: '',
+        Approver2Note: '',
+
+        descriptionLv1: '',
+        AmountLv1: '',
+        PriceLv1: '',
+        TotalLv1: 0,
+        CounselorsLv1: '',
+        CounselorNoteLv1: '',
+        Approver1Lv1: '',
+        Approver1NoteLv1: '',
+      }],
+      currentView: 'suggestion',
+      workflowProcess: 'purchase', 
+    };
+  }
+
+  
+
+  private handleWorkflowChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const process = event.target.value as 'document' | 'purchase';
+    this.setState({ workflowProcess: process });
+  };
+
+  private handleInputChange = (index: number): ((event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void) => {
+    return (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
+      const { name, value, type } = event.target;
+
+      const formDataList = [...this.state.formDataList];
+      if (type === 'checkbox') {
+        const checked = (event.target as HTMLInputElement).checked;
+        formDataList[index][name] = checked;
+      } else {
+        formDataList[index][name] = value;
+      }
+
+      if (name === 'Amount' || name === 'Price') {
+        const amount = parseFloat(formDataList[index].Amount) || 0;
+        const price = parseFloat(formDataList[index].Price) || 0;
+        formDataList[index].Total = amount * price;
+      }
+
+      this.setState({ formDataList }, () => {
+        this.autoAddRow(index);
+      });
+    };
+  };
+
+  private addRow = (): void => {
+    const formDataList = [...this.state.formDataList];
+    formDataList.push({
+      description: '',
+      Amount: '',
+      Price: '',
+      Total: 0,
+      Status: '1',
+      Approve: '',
+      Counselors: '',
+      CounselorNote: '',
+      Approver1: '',
+      Approver1Note: '',
+      Approver2: '',
+      Approver2Note: '',
+
+      descriptionLv1: '',
+      AmountLv1: '',
+      PriceLv1: '',
+      TotalLv1: 0,
+      CounselorsLv1: '',
+      CounselorNoteLv1: '',
+      Approver1Lv1: '',
+      Approver1NoteLv1: '',
+    });
+    this.setState({ formDataList });
+  };
+
+  private autoAddRow = (index: number): void => {
+    const { formDataList } = this.state;
+    const lastIndex = formDataList.length - 1;
+    if (index === lastIndex) {
+      this.addRow();
+    }
+  };
+
+  private switchView = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    const view = event.target.value as 'form' | 'suggestion' | 'approveLevel1' | 'approveLevel2' |'SuggestionViewProcessLevel1' | 'ApproveLevel1ViewProcessLevel1';
+    this.setState({ currentView: view });
+  };
+
+  private handleFileChange = (index: number, event: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0] || undefined;
+    const formDataList = [...this.state.formDataList];
+    formDataList[index].File = file;
+    this.setState({ formDataList });
+  };
+
+  private handleApproveAction = (index: number, isApproved: boolean): void => {
+    const formDataList = [...this.state.formDataList];
+    formDataList[index].Approve = isApproved ? 'Approved' : 'Rejected';
+    this.setState({ formDataList });
+  };
+
+  private handleDeleteRow = (index: number): void => {
+    this.setState((prevState) => {
+      let formDataList = [...prevState.formDataList];
+      if (formDataList.length > 1) {
+        formDataList = formDataList.filter((_, i) => i !== index);
+      } else {
+        formDataList[index] = {
+          description: '',
+          Amount: '',
+          Price: '',
+          Total: 0,
+          Status: '',
+          Approve: '',
+          Counselors: '',
+          CounselorNote: '',
+          Approver1: '',
+          Approver1Note: '',
+          Approver2: '',
+          Approver2Note: '',
+          descriptionLv1: '',
+          AmountLv1: '',
+          PriceLv1: '',
+          TotalLv1: 0,
+          CounselorsLv1: '',
+          CounselorNoteLv1: '',
+          Approver1Lv1: '',
+          Approver1NoteLv1: '',
+        };
+      }
+      return { formDataList };
+    });
+  };
+  
+  public render(): React.ReactElement<ILastProps> {
+    const { hasTeamsContext, userDisplayName, userEmail } = this.props;
+    const { currentView, formDataList, workflowProcess } = this.state;
+  
+    const filteredApproveLevel1Data = formDataList.filter(formData => formData.Approver1 === userEmail);
+  
+    return (
+      <section className={`${styles.last} ${hasTeamsContext ? styles.teams : ''}`}>
+        <div className={styles.welcome}>
+          <h2>Bello, {escape(userDisplayName)}!</h2>
+          <div>
+            <label>
+              <input
+                type="radio"
+                name="workflow"
+                value="document"
+                checked={workflowProcess === 'document'}
+                onChange={this.handleWorkflowChange}
+              />
+              Qui trình duyệt văn bản
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="workflow"
+                value="purchase"
+                checked={workflowProcess === 'purchase'}
+                onChange={this.handleWorkflowChange}
+              />
+              Qui trình duyệt mua hàng
+            </label>
+          </div>
+        </div>
+        <div>
+          <select value={currentView} onChange={this.switchView}>
+            <option value="suggestion">Đề xuất</option>
+            <option value="approveLevel1">Duyệt cấp 1</option>
+            <option value="approveLevel2">Duyệt cấp 2</option>
+            <option value="form">Tất cả</option>
+          </select>
+        </div>
+        {workflowProcess === 'document' && (
+          <div>
+            {/* Render views for document workflow */}
+            {currentView === 'suggestion' && (
+              <SuggestionViewProcessLevel1
+                formDataList={formDataList}
+                handleInputChange={this.handleInputChange}
+                handleFileChange={this.handleFileChange}
+                editable={true}
+                handleDeleteRow={this.handleDeleteRow}
+              />
+            )}
+            {currentView === 'approveLevel1' && (
+              filteredApproveLevel1Data.length > 0 ? (
+                <ApproveLevel1ViewProcessLevel1
+                  formDataList={filteredApproveLevel1Data}
+                  handleInputChange={this.handleInputChange}
+                  handleFileChange={this.handleFileChange}
+                  editable={true}
+                  handleApproveAction={this.handleApproveAction}
+                />
+              ) : (
+                <div>Hết việc rồi về thôi</div>
+              )
+            )}
+          </div>
+        )}
+        {workflowProcess === 'purchase' && (
+          <div>
+            {/* Render views for purchase workflow */}
+            {currentView === 'form' && (
+              <FormView
+                formDataList={formDataList}
+                handleInputChange={this.handleInputChange}
+                handleFileChange={this.handleFileChange}
+                editable={true}
+                handleApproveAction={this.handleApproveAction}
+                handleDeleteRow={this.handleDeleteRow}
+              />
+            )}
+            {currentView === 'suggestion' && (
+              <SuggestionView
+                formDataList={formDataList}
+                handleInputChange={this.handleInputChange}
+                handleFileChange={this.handleFileChange}
+                editable={true}
+                handleDeleteRow={this.handleDeleteRow}
+              />
+            )}
+            {currentView === 'approveLevel1' && (
+              filteredApproveLevel1Data.length > 0 ? (
+                <ApproveLevel1View
+                  formDataList={filteredApproveLevel1Data}
+                  handleInputChange={this.handleInputChange}
+                  handleFileChange={this.handleFileChange}
+                  editable={true}
+                  handleApproveAction={this.handleApproveAction}
+                />
+              ) : (
+                <div>Hết việc rồi về thôi</div>
+              )
+            )}
+            {currentView === 'approveLevel2' && (
+              <ApproveLevel2View
+                formDataList={formDataList.filter(formData => formData.Approver2 === userEmail)}
+                handleInputChange={this.handleInputChange}
+                handleFileChange={this.handleFileChange}
+                editable={true}
+                handleApproveAction={this.handleApproveAction}
+              />
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+}  
