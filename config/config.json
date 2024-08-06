@@ -17,12 +17,20 @@
           "manifest": "./src/webparts/suggest/SuggestWebPart.manifest.json"
         }
       ]
+    },
+    "approve-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/approve/ApproveWebPart.js",
+          "manifest": "./src/webparts/approve/ApproveWebPart.manifest.json"
+        }
+      ]
     }
   },
   "externals": {},
   "localizedResources": {
     "LastWebPartStrings": "lib/webparts/last/loc/{locale}.js",
-    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js",
-    "SuggestWebPartStrings": "lib/webparts/suggest/loc/{locale}.js"
+    "SuggestWebPartStrings": "lib/webparts/suggest/loc/{locale}.js",
+    "ApproveWebPartStrings": "lib/webparts/approve/loc/{locale}.js"
   }
 }

@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
     "name": "last-client-side-solution",
-    "id": "a4dc4881-8370-4c8a-919b-da44a8f89fe5",
+    "id": "ceac8124-a2e8-444b-83ea-eae067cfe984",
     "version": "1.0.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
@@ -29,7 +29,7 @@
       {
         "title": "last Feature",
         "description": "The feature that activates elements of the last solution.",
-        "id": "891252d2-ef4c-4629-b0dc-015c7fbf1196",
+        "id": "57ad8760-9bbf-4b46-90b2-3696f5fae990",
         "version": "1.0.0.0"
       }
     ]

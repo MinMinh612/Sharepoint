@@ -2,21 +2,16 @@ import * as React from 'react';
 import type { IFormDataProcess } from '../IFormData';
 import { useState, useEffect } from 'react';
 import styles from './Process.module.scss';
-import './ProcessAddLevel.module.scss'
 
 interface IProcessDetailProps {
   formDataList: IFormDataProcess[];
   formData: IFormDataProcess;
-  handleInputChange: (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   editable: boolean;
-  // onClose: () => void;
 }
 
 const ProcessDetail: React.FC<IProcessDetailProps> = ({
   formData,
-  handleInputChange,
   editable,
-  // onClose
 }) => {
   const [processLevels, setProcessLevels] = useState<number[]>([]);
 
@@ -42,7 +37,6 @@ const ProcessDetail: React.FC<IProcessDetailProps> = ({
                 type="text"
                 name={`ProcessName${i}`}
                 value={processName}
-                onChange={handleInputChange(i)}
                 className="process-input"
               />
             ) : (
@@ -63,7 +57,6 @@ const ProcessDetail: React.FC<IProcessDetailProps> = ({
               type="text"
               name={`Approver${i}`}
               value={approver}
-              onChange={handleInputChange(i)}
               className="process-input"
             />
           </td>
@@ -73,21 +66,22 @@ const ProcessDetail: React.FC<IProcessDetailProps> = ({
   };
 
   return (
-      <div>
-        <h1>Chi tiết cấp duyệt css</h1>
-        <div className={styles.tableContainer}>
-          <table className="table">
-            <thead className="thead">
-              <tr>
-                <th style={{ width: '150px' }}>Mã qui trình</th>
-                <th style={{ width: '150px' }}>Cấp duyệt</th>
-                <th style={{ width: '150px' }}>Tên người duyệt</th>
-              </tr>
-            </thead>
-            <tbody>{renderProcessItems()}</tbody>
-          </table>
-        </div>
+    <div>
+      <h1>Chi tiết cấp duyệt css</h1>
+      <div className={styles.tableContainer}>
+        <table className="table">
+          <thead className="thead">
+            <tr>
+              <th style={{ width: '150px' }}>Mã qui trình</th>
+              <th style={{ width: '150px' }}>Cấp duyệt</th>
+              <th style={{ width: '150px' }}>Tên người duyệt</th>
+            </tr>
+          </thead>
+          <tbody>{renderProcessItems()}</tbody>
+        </table>
       </div>
+    </div>
   );
 };
+
 export default ProcessDetail;

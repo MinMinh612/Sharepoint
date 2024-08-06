@@ -1,6 +1,6 @@
 import React from 'react';
 import type { IFormDataProcess } from '../IFormData';
-import { FaPlus, FaTimes  } from 'react-icons/fa';
+import { FaPlus, FaTimes } from 'react-icons/fa';
 import ProcessDetail from './ProcessDetail';
 import styles from './ProcessAddLevel.module.scss';
 
@@ -18,7 +18,7 @@ const ProcessAddLevel: React.FC<IProcessAddLevelProps> = ({
   onSave
 }) => {
   const [localFormData, setLocalFormData] = React.useState<IFormDataProcess>(formData);
-  const [isisActive, setIsisActive] = React.useState<boolean>(false);
+  const [isActive, setIsActive] = React.useState<boolean>(false);
 
   const updateData = (field: string, value: string): void => {
     setLocalFormData(prevData => ({
@@ -33,7 +33,7 @@ const ProcessAddLevel: React.FC<IProcessAddLevelProps> = ({
   };
 
   const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    setIsisActive(event.target.checked);
+    setIsActive(event.target.checked);
   };
 
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -41,59 +41,64 @@ const ProcessAddLevel: React.FC<IProcessAddLevelProps> = ({
     onSave(localFormData);
   };
 
+  const processLevelNumber = parseInt(localFormData.ProcessLevelNumber || '0', 10);
+  const processLevelNumberWarning = processLevelNumber > 4;
+  console.log('Process Level Number:', processLevelNumber);
+  console.log('Warning Condition:', processLevelNumberWarning);
+
   return (
     <div>
-        <div className={styles.actionButtonsAdd}>
-          <div className="buttons">
-            <button
-              type="submit"
-              disabled={!editable}
-              form="process-form"
-              className={`${styles.btn} ${styles.btnAdd}`}
-            >
-              <FaPlus /> Lưu
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={!editable}
-              className={`${styles.btn} ${styles.btnCancel}`}
-            >
-              <FaTimes color="red" /> Hủy
-            </button>
-          </div>
-          <div className={styles.checkbox}>
-            <label htmlFor="isActive">Bỏ sử dụng</label>
-            <input
-              type="checkbox"
-              id="isActive"
-              name="isActive"
-              checked={isisActive}
-              onChange={handleCheckboxChange}
-            />
-          </div>
+      <div className={styles.actionButtonsAdd}>
+        <div className="buttons">
+          <button
+            type="submit"
+            disabled={!editable}
+            form="process-form"
+            className={`${styles.btn} ${styles.btnAdd}`}
+          >
+            <FaPlus /> Lưu
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={!editable}
+            className={`${styles.btn} ${styles.btnCancel}`}
+          >
+            <FaTimes color="red" /> Hủy
+          </button>
         </div>
-        <h1>Thêm mới qui trình</h1>
+        <div className={styles.checkbox}>
+          <label htmlFor="isActive">Bỏ sử dụng</label>
+          <input
+            type="checkbox"
+            id="isActive"
+            name="isActive"
+            checked={isActive}
+            onChange={handleCheckboxChange}
+          />
+        </div>
+      </div>
+      <h1>Thêm mới qui trình</h1>
       <div className={styles.formContainerAdd}>
         <form id="process-form" onSubmit={handleFormSubmit}>
           <div className={styles.formGroup}>
             <label htmlFor="ProcessName">Mã qui trình</label>
-            <input 
-              type="text" 
-              id="ProcessName" 
-              name="ProcessName" 
-              value={localFormData.ProcessName || ''} 
-              onChange={handleInput} 
+            <input
+              type="text"
+              id="ProcessName"
+              name="ProcessName"
+              value={localFormData.ProcessName || ''}
+              onChange={handleInput}
             />
           </div>
           <div className={styles.formGroup}>
             <label htmlFor="ProcessNote">Tên qui trình</label>
-            <input 
-              type="text" 
-              id="ProcessNote" 
-              name="ProcessNote" 
-              value={localFormData.ProcessNote || ''} 
-              onChange={handleInput} 
+            <input
+              type="text"
+              id="ProcessNote"
+              name="ProcessNote"
+              value={localFormData.ProcessNote || ''}
+              onChange={handleInput}
             />
           </div>
           <div className={styles.formGroup}>
@@ -105,28 +110,30 @@ const ProcessAddLevel: React.FC<IProcessAddLevelProps> = ({
               onChange={handleInput}
               disabled={!editable}
             >
-              <option value="NoiBo">Nội bộ</option>
-              <option value="KhuVuc">Khu vực</option>
-              <option value="TapDoan">Tập đoàn</option>
+              <option value="Nội bộ">Nội bộ</option>
+              <option value="Khu vực">Khu vực</option>
+              <option value="Tập đoàn">Tập đoàn</option>
             </select>
           </div>
           <div className={styles.formGroup}>
             <label htmlFor="ProcessLevelNumber">Số cấp duyệt</label>
-            <input 
-              type="text" 
-              id="ProcessLevelNumber" 
-              name="ProcessLevelNumber" 
-              value={localFormData.ProcessLevelNumber || ''} 
+            <input
+              type="text"
+              id="ProcessLevelNumber"
+              name="ProcessLevelNumber"
+              value={localFormData.ProcessLevelNumber || ''}
               onChange={handleInput}
             />
+            {processLevelNumberWarning && (
+              <div className={styles.warning}>Bạn đang chọn lớn hơn 4 cấp duyệt</div>
+            )}
           </div>
         </form>
         {localFormData.ProcessLevelNumber && (
           <ProcessDetail
             formDataList={[localFormData]} 
-            handleInputChange={(index: number) => handleInput}
             editable={editable}
-            formData={localFormData} 
+            formData={localFormData}
           />
         )}
       </div>

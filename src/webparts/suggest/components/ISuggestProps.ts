@@ -13,16 +13,27 @@ export interface ISuggestProps {
   Plan: string;
   Date: string;
   Emergency: string;
-  File?: File;
-  NoteSuggest: string
+  File?: File;  
+  NoteSuggest: string;
+  StatusSuggestion: string;
 
 }
 
 export interface IFormData {
+  ProcessName: string;
   description: string;
   Plan: string;
   Date: string;
   Emergency: string;
-  File: File | undefined;
+  File: { name: string; url: string }[];  
   NoteSuggest: string;
+  StatusSuggestion: string;
 }
+
+export interface Comment {
+  id: number;
+  displayName: string;
+  avatarUrl: string;
+  content: string;
+}
+

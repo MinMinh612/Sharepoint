@@ -2,35 +2,22 @@ import * as React from 'react';
 import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
-  IPropertyPaneConfiguration,
+  type IPropertyPaneConfiguration,
   PropertyPaneTextField
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 
-import * as strings from 'SuggestWebPartStrings';
-import Suggest from './components/Suggest';
-import { ISuggestProps, IFormData } from './components/ISuggestProps';
+import * as strings from 'ApproveWebPartStrings';
+import Approve from './components/Approve';
+import { IApproveProps } from './components/IApproveProps';
+import {  IFormData } from './../suggest/components/ISuggestProps';
 
-export interface ISuggestWebPartProps {
+export interface IApproveWebPartProps {
   description: string;
-  Plan: string;
-  Date: string;
-  Emergency: string;
-  File: File | undefined; 
-  NoteSuggest: string;
-  StatusSuggestion: string;
 }
 
-interface ITeamsContext {
-  app: {
-    host: {
-      name: string;
-    };
-  };
-}
-
-export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPartProps> {
+export default class ApproveWebPart extends BaseClientSideWebPart<IApproveWebPartProps> {
 
   private _isDarkTheme: boolean = false;
   private _environmentMessage: string = '';
@@ -51,50 +38,46 @@ export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPar
       // EDIT
     };
 
-    const element: React.ReactElement<ISuggestProps> = React.createElement(
-      Suggest,
+    const element: React.ReactElement<IApproveProps> = React.createElement(
+      Approve,
       {
         description: this.properties.description,
         isDarkTheme: this._isDarkTheme,
         environmentMessage: this._environmentMessage,
         hasTeamsContext: !!this.context.sdks.microsoftTeams,
         userDisplayName: this.context.pageContext.user.displayName,
-        Plan: this.properties.Plan,
-        Date: this.properties.Date,
-        Emergency: this.properties.Emergency,
-        File: this.properties.File,
-        NoteSuggest: this.properties.NoteSuggest,
         formDataList: formDataList,
         handleDeleteRow: handleDeleteRow,
         handleAddRow: handleAddRow,
         editable: true,
         editRow: editRow,
-        StatusSuggestion: this.properties.StatusSuggestion,
       }
     );
-  
+
     ReactDom.render(element, this.domElement);
   }
 
   protected onInit(): Promise<void> {
-    return this._getEnvironmentMessage().then((message: string): void => {
+    return this._getEnvironmentMessage().then(message => {
       this._environmentMessage = message;
     });
   }
 
+
+
   private _getEnvironmentMessage(): Promise<string> {
-    if (!!this.context.sdks.microsoftTeams) { 
+    if (!!this.context.sdks.microsoftTeams) { // running in Teams, office.com or Outlook
       return this.context.sdks.microsoftTeams.teamsJs.app.getContext()
-        .then((context: ITeamsContext): string => {
+        .then(context => {
           let environmentMessage: string = '';
           switch (context.app.host.name) {
-            case 'Office': 
+            case 'Office': // running in Office
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOffice : strings.AppOfficeEnvironment;
               break;
-            case 'Outlook': 
+            case 'Outlook': // running in Outlook
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOutlook : strings.AppOutlookEnvironment;
               break;
-            case 'Teams': 
+            case 'Teams': // running in Teams
             case 'TeamsModern':
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentTeams : strings.AppTeamsTabEnvironment;
               break;

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import styles from './Last.module.scss';
 import type { ILastProps } from './ILastProps';
-// import { escape } from '@microsoft/sp-lodash-subset';
 import Process from './Process/Process';
 import type { MergedFormData } from './IFormData';
 
@@ -19,7 +18,7 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
     this.state = {
       formDataList: [
         {
-          currentUserEmail: props.userEmail,
+          currentUserEmail: '',
           description: '',
           Amount: '',
           Price: '',
@@ -32,7 +31,7 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           Approver1Note: '',
           Approver2: '',
           Approver2Note: '',
-  
+      
           descriptionLv1: '',
           AmountLv1: '',
           PriceLv1: '',
@@ -41,18 +40,18 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           CounselorNoteLv1: '',
           Approver1Lv1: [],
           Approver1NoteLv1: '',
-  
+      
           ProcessId: '1',
           ProcessName: 'QT1',
           ProcessNote: 'TEN1',
           ProcessLevelNumber: '2',
           ProcessLevel: '',
           ProcessType: '',
-  
+      
           Approver: ['minh', 'thanh']
         },
         {
-          currentUserEmail: props.userEmail,
+          currentUserEmail: '',
           description: '',
           Amount: '',
           Price: '',
@@ -65,7 +64,7 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           Approver1Note: '',
           Approver2: '',
           Approver2Note: '',
-  
+      
           descriptionLv1: '',
           AmountLv1: '',
           PriceLv1: '',
@@ -74,14 +73,14 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           CounselorNoteLv1: '',
           Approver1Lv1: [],
           Approver1NoteLv1: '',
-  
+      
           ProcessId: '2',
           ProcessName: 'QT2',
           ProcessNote: 'TEN2',
           ProcessLevelNumber: '3',
           ProcessLevel: '',
           ProcessType: '',
-  
+      
           Approver: ['thanh', 'minh']
         }
       ],
@@ -104,7 +103,6 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
         formDataList[index][name] = value;
       }
   
-      // Recalculate Total if Amount or Price changes
       if (name === 'Amount' || name === 'Price') {
         const amount = parseFloat(formDataList[index].Amount) || 0;
         const price = parseFloat(formDataList[index].Price) || 0;

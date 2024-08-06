@@ -42,6 +42,11 @@ const Process: React.FC<IProcessProps> = ({
     Approver: []
   });
 
+  if (!Array.isArray(formDataList)) {
+    console.error('formDataList is not an array', formDataList);
+    return null; // Hoặc xử lý lỗi khác
+  }
+
   const showDetail = (index: number): void => {
     setNewFormData(formDataList[index]); // Set the form data to be edited
     setIsAdding(true); // Show ProcessAddLevel
@@ -49,6 +54,16 @@ const Process: React.FC<IProcessProps> = ({
 
   const hideDetail = (): void => {
     setIsAdding(false);
+  };
+
+  const handleSelectAllChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const checked = event.target.checked;
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedRows(new Set(formDataList.map((_, index) => index)));
+    } else {
+      setSelectedRows(new Set());
+    }
   };
 
   const handleCheckboxChange = (index: number): void => {
@@ -61,16 +76,6 @@ const Process: React.FC<IProcessProps> = ({
       }
       return newSelectedRows;
     });
-  };
-
-  const handleSelectAllChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const checked = event.target.checked;
-    setSelectAll(checked);
-    if (checked) {
-      setSelectedRows(new Set(formDataList.map((_, index) => index)));
-    } else {
-      setSelectedRows(new Set());
-    }
   };
 
   const handleDeleteSelected = (): void => {
@@ -98,6 +103,11 @@ const Process: React.FC<IProcessProps> = ({
     setIsAdding(false);
   };
 
+  const handleEdit = (index: number): void => {
+    setNewFormData(formDataList[index]); // Set the form data to be edited
+    setIsAdding(true); // Show ProcessAddLevel for editing
+  };
+
   return (
     <div className={styles.formContainer}>
       {isAdding ? (
@@ -115,7 +125,7 @@ const Process: React.FC<IProcessProps> = ({
                 <FaPlus color="green" /> Thêm
               </button>
               <button
-                onClick={() => selectedRows.size === 1 && editRow(Array.from(selectedRows)[0])}
+                onClick={() => selectedRows.size === 1 && handleEdit(Array.from(selectedRows)[0])}
                 disabled={!editable || selectedRows.size !== 1}
                 className={`${styles.btn} ${styles.btnEdit}`}
               >
@@ -129,7 +139,6 @@ const Process: React.FC<IProcessProps> = ({
                 <FaTrash color="red" /> Xóa
               </button>
             </div>
-            <h1>Danh mục qui trình 123456</h1>
             <form className={styles.tableContainer}>
               <table className="table">
                 <thead className="thead">
@@ -156,6 +165,7 @@ const Process: React.FC<IProcessProps> = ({
                           type="checkbox"
                           checked={selectedRows.has(index)}
                           onChange={() => handleCheckboxChange(index)}
+                          disabled={!editable}
                         />
                       </td>
                       <td><input type="text" name="ProcessName" value={formData.ProcessName} readOnly /></td>
