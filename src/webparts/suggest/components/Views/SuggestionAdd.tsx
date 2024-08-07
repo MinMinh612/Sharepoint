@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { useState } from 'react';
 import type { IFormData } from '../ISuggestProps';
 import styles from './SuggestionAdd.module.scss';
 import FooterButton from './FooterButton';
-import { FaDownload } from 'react-icons/fa';
+import { FaDownload, FaFilePdf, FaFileWord, FaFileAlt } from 'react-icons/fa';
 import { IFormDataProcess } from '../../../last/components/IFormData';
 
 interface ISuggestionAddProps {
@@ -27,11 +26,7 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
 }) => {
   const [activeTab, setActiveTab] = React.useState<'content' | 'related' | 'flow'>('content');
   const [localFormDataList, setLocalFormDataList] = React.useState<IFormData[]>(formDataList);
-  const [filePreviews, setFilePreviews] = useState<Map<number, { name: string; url: string }[]>>(new Map());
   const [currentStep, setCurrentStep] = React.useState<'draft' | 'advise' | 'approve' | 'issue'>('draft');
-
-
-
 
   const getStatusStepClass = (step: 'draft' | 'advise' | 'approve' | 'issue'): string => {
     if (currentStep === step) return `${styles.statusStep} ${styles.inProgress}`;
@@ -49,11 +44,6 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
       
       updatedFormDataList[index] = { ...updatedFormDataList[index], [name]: filesWithUrls };
       
-      setFilePreviews(prev => {
-        const newMap = new Map(prev);
-        newMap.set(index, filesWithUrls);
-        return newMap;
-      });
     } else if (name === 'Date') {
       const date = new Date(value as string);
       updatedFormDataList[index] = { ...updatedFormDataList[index], [name]: date.toISOString().slice(0, 16) };
@@ -64,24 +54,44 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
     setLocalFormDataList(updatedFormDataList);
   };
           
+  const handleFileChange = (index: number, event: React.ChangeEvent<HTMLInputElement>): void => {
+    const files = event.target.files;
+    if (files) {
+      handleInputChange(index, 'File', Array.from(files));
+    }
+  };
+
   const handleSave = (): void => {
     setCurrentStep('advise');
   };
 
-  const handleDownload = (file: { name: string; url: string }): void => {
+  const handleDownload = (url: string, fileName: string): void => {
     const a = document.createElement('a');
-    a.href = file.url;
-    a.download = file.name;
+    a.href = url;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
-  
+
+  const renderFileIcon = (fileName: string): JSX.Element => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return <FaFilePdf color="red" />;
+      case 'doc':
+      case 'docx':
+        return <FaFileWord color="blue" />;
+      default:
+        return <FaFileAlt />;
+    }
+  };
+
   return (
     <div>
       <div className={styles.header}>
         <div className={getStatusStepClass('draft')}>
-          <div className={styles.statusLabel}>Soạn thảo 123</div>
+          <div className={styles.statusLabel}>Soạn thảo 10000</div>
           <div className={styles.statusCircle} />
         </div>
         <div className={styles.connector} />
@@ -180,25 +190,26 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
                   </label>
                   <label className={styles.label}>
                     File:
+                    <div className={styles.fileContainer}>
                     <input
-                      type="file"
-                      multiple
-                      onChange={(e) => {
-                        if (e.target.files) {
-                          const files = Array.from(e.target.files);
-                          handleInputChange(index, 'File', files);
-                        }
-                      }}
-                    />
-                    {filePreviews.get(index)?.map((preview, previewIndex) => (
-                      <button
-                        key={previewIndex}
-                        className={styles.downloadButton}
-                        onClick={() => handleDownload(localFormDataList[index].File[previewIndex])}
-                      >
-                        <FaDownload /> Download
-                      </button>
-                    ))}
+                        type="file"
+                        multiple
+                        onChange={(e) => handleFileChange(index, e)}
+                        className={styles.fileInput}
+                      />
+                      {formData.File.map((file, fileIndex) => (
+                        <div key={fileIndex} className={styles.fileItem}>
+                          {renderFileIcon(file.name)}
+                          <a href={file.url} target="_blank" rel="noopener noreferrer">
+                            {file.name}
+                          </a>
+                          <FaDownload
+                            className={styles.downloadButton}
+                            onClick={() => handleDownload(file.url, file.name)}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </label>
                 </div>
                 <div className={styles.row}>
@@ -229,9 +240,6 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
           </div>
         )}
       </div>
-      {/* <div>
-        <SuggestionAddViewApprove comments={dataComments} />
-      </div> */}
       <div className={styles.footer}>
         <FooterButton onClose={onClose} onSave={handleSave} />
       </div>

@@ -247,17 +247,28 @@ input {
   color: #0078d4; 
 }
 
+
 .downloadButton:hover {
   color: #005a9e;
 }
 
+
+.fileWrapper {
+  display: flex;
+  align-items: flex-start; /* Align items at the start */
+  gap: 10px; /* Space between input and file container */
+}
+
+
+.fileInput {
+  margin-bottom: 10px;
+}
+
 .fileContainer {
   position: relative; 
-  border: 1px solid #ccc; 
-  padding: 10px;
   border-radius: 4px; 
-  background-color: #f9f9f9; 
   overflow: hidden; 
+  width: auto;
 }
 
 .fileItem {
@@ -296,6 +307,12 @@ input {
       }
     }
   }
+}
+
+.filePreview {
+  display: flex;
+  align-items: center;
+  margin-top: 0.5rem;
 }
 
 

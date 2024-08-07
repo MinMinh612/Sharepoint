@@ -25,12 +25,21 @@
           "manifest": "./src/webparts/approve/ApproveWebPart.manifest.json"
         }
       ]
+    },
+    "home-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/home/HomeWebPart.js",
+          "manifest": "./src/webparts/home/HomeWebPart.manifest.json"
+        }
+      ]
     }
   },
   "externals": {},
   "localizedResources": {
     "LastWebPartStrings": "lib/webparts/last/loc/{locale}.js",
     "SuggestWebPartStrings": "lib/webparts/suggest/loc/{locale}.js",
-    "ApproveWebPartStrings": "lib/webparts/approve/loc/{locale}.js"
+    "ApproveWebPartStrings": "lib/webparts/approve/loc/{locale}.js",
+    "HomeWebPartStrings": "lib/webparts/home/loc/{locale}.js"
   }
 }
