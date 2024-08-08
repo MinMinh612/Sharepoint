@@ -16,7 +16,8 @@
     "allowSyntheticDefaultImports": true,
     "typeRoots": [
       "./node_modules/@types",
-      "./node_modules/@microsoft"
+      "./node_modules/@microsoft",
+      "./node_modules/@pnp"
     ],
     "types": [
       "webpack-env"

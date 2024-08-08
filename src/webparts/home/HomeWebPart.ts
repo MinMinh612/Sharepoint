@@ -1,105 +1,119 @@
-import * as React from 'react';
-import * as ReactDom from 'react-dom';
+// import * as React from 'react';
+// import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
-  type IPropertyPaneConfiguration,
+  IPropertyPaneConfiguration,
   PropertyPaneTextField
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
-import { IReadonlyTheme } from '@microsoft/sp-component-base';
+// import { IReadonlyTheme } from '@microsoft/sp-component-base';
 
 import * as strings from 'HomeWebPartStrings';
-import Home from './components/Home';
-import { IHomeProps } from './components/IHomeProps';
-import {  IFormData } from './../suggest/components/ISuggestProps';
-
+import { spfi, SPFx } from "@pnp/sp";
+import "@pnp/sp/webs";
+import "@pnp/sp/lists";
+import "@pnp/sp/items";
+import { SPHttpClient } from "@microsoft/sp-http";
 
 export interface IHomeWebPartProps {
   description: string;
 }
 
 export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps> {
-
-  private _isDarkTheme: boolean = false;
-  private _environmentMessage: string = '';
-
-
-
   public render(): void {
-    const formDataList: IFormData[] = [
-    ];
+    this.domElement.innerHTML = `
+      <div>
+        <div>
+          <table border='5'>
+            <tr>
+              <td>Student Id</td>
+              <td><input type='text' id='studentId' /></td>
+              <td><input type='submit' id='btnGet' value='Get Details' /></td>
+            </tr>
+            <tr>
+              <td>Student Name</td>
+              <td><input type='text' id='txtstudentname' /></td>
+            </tr>
+            <tr>
+              <td>Student Department</td>
+              <td><input type='text' id='txtstudentDept' /></td>
+            </tr>
+            <tr>
+              <td>Student City</td>
+              <td><input type='text' id='txtstudcity' /></td>
+            </tr>
+            <tr>
+              <td>
+                <input type='submit' value='Insert' id='btnInsert' /> 
+                <input type='submit' value='Update' id='btnUpdate' /> 
+                <input type='submit' value='Delete' id='btnDelete' />
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div id="MsgStatus"></div>
+      </div>
+    `;
 
-    const element: React.ReactElement<IHomeProps> = React.createElement(
-      Home,
-      {
-        description: this.properties.description,
-        isDarkTheme: this._isDarkTheme,
-        environmentMessage: this._environmentMessage,
-        hasTeamsContext: !!this.context.sdks.microsoftTeams,
-        userDisplayName: this.context.pageContext.user.displayName,
-        formDataList: formDataList,
+    this.bindEvent();
+    this.checkListExists();
+  }
 
+  private bindEvent(): void {
+    const btnInsert = this.domElement.querySelector('#btnInsert');
+    if (btnInsert) {
+      btnInsert.addEventListener('click', () => {
+        this.insertStudent();
+      });
+    }
+  }
+
+  private insertStudent(): void {
+    const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
+    const studentNameElement = document.getElementById("txtstudentname") as HTMLInputElement;
+    const studentDeptElement = document.getElementById("txtstudentDept") as HTMLInputElement;
+    const studentCityElement = document.getElementById("txtstudcity") as HTMLInputElement;
+
+    if (studentIdElement && studentNameElement && studentDeptElement && studentCityElement) {
+      const studentId = studentIdElement.value;
+      const studentName = studentNameElement.value;
+      const studentDept = studentDeptElement.value;
+      const studentCity = studentCityElement.value;
+
+      const listTitle = 'TestAPI';
+      // const url = `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('${listTitle}')/items`;
+
+      spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.add({
+        Title: studentId,
+        StudentName: studentName,
+        StudentDept: studentDept,
+        StudentCity: studentCity
+      }).then(response => {
+        alert('Add successful');
+      }).catch(error => {
+        alert('Add failed: ' + error);
+      });
+    } else {
+      alert('Please fill in all fields.');
+    }
+  }
+
+  private checkListExists(): void {
+    const listTitle = 'TestAPI';
+    this.context.spHttpClient.get(
+      `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('${listTitle}')`,
+      SPHttpClient.configurations.v1
+    )
+    .then(response => {
+      if (response.ok) {
+        console.log('List exists.');
+      } else {
+        console.error('List does not exist.');
       }
-    );
-
-    ReactDom.render(element, this.domElement);
-  }
-
-  protected onInit(): Promise<void> {
-    return this._getEnvironmentMessage().then(message => {
-      this._environmentMessage = message;
+    })
+    .catch(error => {
+      console.error('Error checking list existence:', error);
     });
-  }
-
-
-
-  private _getEnvironmentMessage(): Promise<string> {
-    if (!!this.context.sdks.microsoftTeams) { // running in Teams, office.com or Outlook
-      return this.context.sdks.microsoftTeams.teamsJs.app.getContext()
-        .then(context => {
-          let environmentMessage: string = '';
-          switch (context.app.host.name) {
-            case 'Office': // running in Office
-              environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOffice : strings.AppOfficeEnvironment;
-              break;
-            case 'Outlook': // running in Outlook
-              environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOutlook : strings.AppOutlookEnvironment;
-              break;
-            case 'Teams': // running in Teams
-            case 'TeamsModern':
-              environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentTeams : strings.AppTeamsTabEnvironment;
-              break;
-            default:
-              environmentMessage = strings.UnknownEnvironment;
-          }
-
-          return environmentMessage;
-        });
-    }
-
-    return Promise.resolve(this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentSharePoint : strings.AppSharePointEnvironment);
-  }
-
-  protected onThemeChanged(currentTheme: IReadonlyTheme | undefined): void {
-    if (!currentTheme) {
-      return;
-    }
-
-    this._isDarkTheme = !!currentTheme.isInverted;
-    const {
-      semanticColors
-    } = currentTheme;
-
-    if (semanticColors) {
-      this.domElement.style.setProperty('--bodyText', semanticColors.bodyText || null);
-      this.domElement.style.setProperty('--link', semanticColors.link || null);
-      this.domElement.style.setProperty('--linkHovered', semanticColors.linkHovered || null);
-    }
-
-  }
-
-  protected onDispose(): void {
-    ReactDom.unmountComponentAtNode(this.domElement);
   }
 
   protected get dataVersion(): Version {
