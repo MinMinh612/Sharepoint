@@ -122,7 +122,7 @@ const Approval: React.FC<IApprovalProps> = ({
 
   return (
     <div className={styles.formContainer}>
-      <div className={styles.tableContainer}>
+      <div>
         <form className={styles.tableContainer}>
           <table>
             <thead>
@@ -130,10 +130,10 @@ const Approval: React.FC<IApprovalProps> = ({
                 <th style={{ width: '50px' }}>
                   <input type="checkbox" checked={selectAll} onChange={handleSelectAllChange} />
                 </th>
-                <th style={{ width: '300px' }}>Nội dung</th>
+                <th style={{ width: '300px' }}>Nội dung </th>
                 <th style={{ width: '200px' }}>Tài liệu</th>
                 <th style={{ width: '100px' }}>Chi tiết</th>
-                <th style={{ width: '180px' }}>Duyệt</th>
+                <th style={{ width: '180px' }}>Duyệt </th>
               </tr>
             </thead>
             <tbody>

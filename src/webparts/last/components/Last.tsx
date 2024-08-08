@@ -42,8 +42,8 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           Approver1NoteLv1: '',
       
           ProcessId: '1',
-          ProcessName: 'QT1',
-          ProcessNote: 'TEN1',
+          ProcessName: 'Qui trình duyệt 2 cấp',
+          ProcessNote: 'Duyệt 2 cấp',
           ProcessLevelNumber: '2',
           ProcessLevel: '',
           ProcessType: '',
@@ -75,8 +75,8 @@ export default class Last extends React.Component<ILastPropsExtended, ILastState
           Approver1NoteLv1: '',
       
           ProcessId: '2',
-          ProcessName: 'QT2',
-          ProcessNote: 'TEN2',
+          ProcessName: 'Qui trình duyệt 3 cấp',
+          ProcessNote: 'Duyệt 3 cấp',
           ProcessLevelNumber: '3',
           ProcessLevel: '',
           ProcessType: '',

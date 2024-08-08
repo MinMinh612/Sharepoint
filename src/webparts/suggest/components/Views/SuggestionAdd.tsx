@@ -91,7 +91,7 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
     <div>
       <div className={styles.header}>
         <div className={getStatusStepClass('draft')}>
-          <div className={styles.statusLabel}>Soạn thảo 10000</div>
+          <div className={styles.statusLabel}>Soạn thảo</div>
           <div className={styles.statusCircle} />
         </div>
         <div className={styles.connector} />
@@ -180,7 +180,9 @@ const SuggestionAdd: React.FC<ISuggestionAddProps> = ({
                       onChange={(e) => handleInputChange(index, 'ProcessName', e.target.value)}
                       className={styles.select}
                     >
-                      <option value=""> </option>
+                      <option value="c2">Duyệt 2 cấp</option>
+                      <option value="c3">Duyệt 3 cấp</option>
+
                       {formDataListProcess.map((option, idx) => (
                         <option key={idx} value={option.ProcessName}>
                           {option.ProcessName}

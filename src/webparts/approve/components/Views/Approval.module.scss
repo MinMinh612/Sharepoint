@@ -1,26 +1,20 @@
 @import '~@fluentui/react/dist/sass/References.scss';
 
-// Style the container for the process component
-.processContainer {
-  padding: 20px;
-}
 
 .formContainer {
-  padding: 20px;
-  background-color: #fff;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  margin-left: -30px;
+  // overflow: auto;
+  margin-right: 30vw;
 }
 
 .actionButtons {
   display: flex;
   gap: 10px; 
   padding: 10px;
-  // border-radius: 4px;
-  // margin-bottom: 0;
   border-top: 1px solid #beb9b99a;
   border-bottom: 1px solid #beb9b99a;
-  background-color: #ffffff;
 }
 
 .btn {
@@ -32,12 +26,11 @@
 }
 
 .btnAdd {
-  background-color: #90ee90; /* Light green background */
+  background-color: #90ee90; 
 }
 
 .btnEdit, .btnDelete {
   background-color: transparent;
-  border: 1px solid #ffffff;
   &:hover {
     background-color: #bb8b6b9d; 
   }
@@ -49,6 +42,8 @@
 
 .tableContainer {
   margin: 20px;
+  width: 100%;
+  padding: 5px;
 }
 
 .tableContainer h1 {
@@ -56,7 +51,6 @@
   margin: 16px 0 8px 0;
   color: #333;
   font-weight: bold;
-  background-color: #ffffff;
   padding: 10px;
   border-radius: 4px;
 }
@@ -64,13 +58,11 @@
 .tableContainer table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #ffffff;
   border: 1px solid #d0d0d0;
   border-radius: 4px;
 }
 
 .tableContainer thead {
-  background-color: #ffffff;
   color: #333;
   font-weight: bold;
 }
@@ -110,7 +102,7 @@
   padding: 4px;
   width: 100%;
   box-sizing: border-box;
-  background-color: #ffffff;
+  // background-color: #ffffff;
 }
 
 .tableContainer td button {
@@ -132,9 +124,9 @@
   background-color: #f9f9f9; 
   color: #333;
   box-sizing: border-box;
-  appearance: none; /* Xóa mũi tên xuống mặc định */
-  -webkit-appearance: none; /* Xóa mũi tên trên các trình duyệt WebKit */
-  -moz-appearance: none; /* Xóa mũi tên trên Firefox */
+  appearance: none; 
+  -webkit-appearance: none; 
+  -moz-appearance: none; 
   cursor: default;
 }
 

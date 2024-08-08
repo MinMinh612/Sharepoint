@@ -40,27 +40,26 @@
 }
 
 .topLeftText {
-  position: absolute;
   top: 0;
   left: 0;
   padding: 10px;
 }
 
 .approvalHomeContainer {
-  padding-top: 40px; /* Adjust this value as needed to avoid overlap */
+  width: 100%; 
+  margin-left: 0; 
+  padding-left: 0; 
+  margin-right: 80px;
 }
 
 .documentHeader {
   font-size: 24px;
   font-weight: bold;
-  color: #323130; /* Choose a different color for distinction */
-  top: 0;
-  left: 0;
+  color: #323130; 
   padding: 10px;
-  position: absolute;
+  margin: 0;
+  display: inline-flex;
   align-items: center;
-  display: inline-block;
-  margin: 0; 
 }
 
 .headerContainer {

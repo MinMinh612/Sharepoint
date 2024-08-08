@@ -27,7 +27,7 @@ const ApprovalHome: React.FC<IApprovalHomeProps> = ({
   return (
     <div className={styles.formContainer}>
       <div className={styles.tableContainer}>
-        <form className={styles.tableContainer}>
+        <form>
           <table>
             <thead>
               <tr>

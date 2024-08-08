@@ -175,7 +175,7 @@ const SuggestionAddView: React.FC<ISuggestionAddViewProps> = ({
                           <FaDownload
                             className={styles.downloadButton}
                             onClick={() => handleDownload(file.url, file.name)}
-                          /> Download
+                          />
                         </div>
                       ))}
                     </div>

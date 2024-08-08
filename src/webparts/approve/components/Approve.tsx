@@ -21,8 +21,8 @@ export default class Approve extends React.Component<IApproveProps, IApproveStat
           Date: '31/07/2024 10:00',
           Emergency: 'Hơi gấp',
           File: [
-            { name: 'document1.pdf', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
-            { name: 'document2.docx', url: 'https://file-examples.com/wp-content/uploads/2017/02/file_example_DOC_10.docx' }
+            { name: 'Tài liệu.pdf', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
+            { name: 'Tài liệu.docx', url: 'https://file-examples.com/wp-content/uploads/2017/02/file_example_DOC_10.docx' }
           ],
           NoteSuggest: 'Cần chữa lành',
           ProcessName: '',
@@ -34,8 +34,8 @@ export default class Approve extends React.Component<IApproveProps, IApproveStat
           Date: '31/07/2024 11:21',
           Emergency: 'Gấp',
           File: [
-            { name: 'document3.pdf', url: 'https://www.pdf995.com/samples/pdf.pdf' },
-            { name: 'document4.docx', url: 'https://file-examples.com/wp-content/uploads/2017/02/file_example_DOC_10.docx' }
+            { name: 'Mẫu thử.pdf', url: 'https://www.pdf995.com/samples/pdf.pdf' },
+            { name: 'Mẫu thử.docx', url: 'https://file-examples.com/wp-content/uploads/2017/02/file_example_DOC_10.docx' }
           ],
           NoteSuggest: 'Chữa rách vết thương đã lành',
           ProcessName: '',
