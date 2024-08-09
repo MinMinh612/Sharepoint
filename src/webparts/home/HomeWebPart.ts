@@ -1,5 +1,3 @@
-// import * as React from 'react';
-// import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
   IPropertyPaneConfiguration,
@@ -13,10 +11,17 @@ import { spfi, SPFx } from "@pnp/sp";
 import "@pnp/sp/webs";
 import "@pnp/sp/lists";
 import "@pnp/sp/items";
-import { SPHttpClient } from "@microsoft/sp-http";
 
 export interface IHomeWebPartProps {
   description: string;
+}
+
+export interface IStudentItem {
+  Id: number;
+  Title: string;
+  StudentName: string;
+  StudentDept: string;
+  StudentCity: string;
 }
 
 export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps> {
@@ -66,6 +71,27 @@ export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps
         this.insertStudent();
       });
     }
+
+    const btnUpdate = this.domElement.querySelector('#btnUpdate');
+    if (btnUpdate) {
+      btnUpdate.addEventListener('click', () => {
+        this.updateStudent();
+      });
+    }
+
+    const btnDelete = this.domElement.querySelector('#btnDelete');
+    if (btnDelete) {
+      btnDelete.addEventListener('click', () => {
+        this.deleteStudent();
+      });
+    }
+
+    const btnGet = this.domElement.querySelector('#btnGet');
+    if (btnGet) {
+      btnGet.addEventListener('click', () => {
+        this.getStudent();
+      });
+    }
   }
 
   private insertStudent(): void {
@@ -81,7 +107,6 @@ export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps
       const studentCity = studentCityElement.value;
 
       const listTitle = 'TestAPI';
-      // const url = `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('${listTitle}')/items`;
 
       spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.add({
         Title: studentId,
@@ -90,6 +115,7 @@ export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps
         StudentCity: studentCity
       }).then(response => {
         alert('Add successful');
+        this.getStudent();
       }).catch(error => {
         alert('Add failed: ' + error);
       });
@@ -98,22 +124,89 @@ export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps
     }
   }
 
+  private updateStudent(): void {
+    const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
+    const studentNameElement = document.getElementById("txtstudentname") as HTMLInputElement;
+    const studentDeptElement = document.getElementById("txtstudentDept") as HTMLInputElement;
+    const studentCityElement = document.getElementById("txtstudcity") as HTMLInputElement;
+
+    if (studentIdElement && studentNameElement && studentDeptElement && studentCityElement) {
+      const studentId = studentIdElement.value;
+
+      const listTitle = 'TestAPI';
+      spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
+        .then((items: IStudentItem[]) => {
+          const item = items[0];
+          return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).update({
+            StudentName: studentNameElement.value,
+            StudentDept: studentDeptElement.value,
+            StudentCity: studentCityElement.value
+          });
+        }).then(() => {
+          alert('Update successful');
+          this.getStudent();
+        }).catch(error => {
+          alert('Update failed: ' + error);
+        });
+    } else {
+      alert('Please fill in all fields.');
+    }
+  }
+
+  private deleteStudent(): void {
+    const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
+
+    if (studentIdElement) {
+      const studentId = studentIdElement.value;
+
+      const listTitle = 'TestAPI';
+      spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
+        .then((items: IStudentItem[]) => {
+          const item = items[0];
+          return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).delete();
+        }).then(() => {
+          alert('Delete successful');
+          this.getStudent();
+        }).catch(error => {
+          alert('Delete failed: ' + error);
+        });
+    } else {
+      alert('Please enter a student ID.');
+    }
+  }
+
+  private getStudent(): void {
+    const listTitle = 'TestAPI';
+    spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.select('Title', 'StudentName', 'StudentDept', 'StudentCity')()
+      .then((items: IStudentItem[]) => {
+        let html: string = '<table border="1" width="100%"><tr><th>Student Id</th><th>Student Name</th><th>Student Dept</th><th>Student City</th></tr>';
+        items.forEach((item: IStudentItem) => {
+          html += `<tr>
+                    <td>${item.Title}</td>
+                    <td>${item.StudentName}</td>
+                    <td>${item.StudentDept}</td>
+                    <td>${item.StudentCity}</td>
+                   </tr>`;
+        });
+        html += '</table>';
+        const msgStatusElement = this.domElement.querySelector('#MsgStatus');
+        if (msgStatusElement) {
+          msgStatusElement.innerHTML = html;
+        }
+      }).catch((error: string) => {
+        alert('Error retrieving data: ' + error);
+      });
+  }
+
   private checkListExists(): void {
     const listTitle = 'TestAPI';
-    this.context.spHttpClient.get(
-      `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('${listTitle}')`,
-      SPHttpClient.configurations.v1
-    )
-    .then(response => {
-      if (response.ok) {
+    spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle)()
+      .then(() => {
         console.log('List exists.');
-      } else {
-        console.error('List does not exist.');
-      }
-    })
-    .catch(error => {
-      console.error('Error checking list existence:', error);
-    });
+      })
+      .catch(error => {
+        console.error('List does not exist:', error);
+      });
   }
 
   protected get dataVersion(): Version {
