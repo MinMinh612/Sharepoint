@@ -152,122 +152,122 @@ export default class HomeWebPart extends BaseClientSideWebPart<IHomeWebPartProps
     } else {
         alert('Please fill in all fields.');
     }
-}
+  }
 
-private updateStudent(): void {
-  const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
-  const studentNameElement = document.getElementById("txtstudentname") as HTMLInputElement;
-  const studentDeptElement = document.getElementById("txtstudentDept") as HTMLInputElement;
-  const studentCityElement = document.getElementById("txtstudcity") as HTMLInputElement;
-  const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
+  private updateStudent(): void {
+    const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
+    const studentNameElement = document.getElementById("txtstudentname") as HTMLInputElement;
+    const studentDeptElement = document.getElementById("txtstudentDept") as HTMLInputElement;
+    const studentCityElement = document.getElementById("txtstudcity") as HTMLInputElement;
+    const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
 
-  if (studentIdElement && studentNameElement && studentDeptElement && studentCityElement) {
-    const studentId = studentIdElement.value;
-    const file = fileInputElement.files ? fileInputElement.files[0] : null;
+    if (studentIdElement && studentNameElement && studentDeptElement && studentCityElement) {
+      const studentId = studentIdElement.value;
+      const file = fileInputElement.files ? fileInputElement.files[0] : null;
 
-    const listTitle = 'TestAPI';
-    spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
-      .then((items: IStudentItem[]) => {
-        const item = items[0];
-        const itemUpdate = spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).update({
-          StudentName: studentNameElement.value,
-          StudentDept: studentDeptElement.value,
-          StudentCity: studentCityElement.value
+      const listTitle = 'TestAPI';
+      spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
+        .then((items: IStudentItem[]) => {
+          const item = items[0];
+          const itemUpdate = spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).update({
+            StudentName: studentNameElement.value,
+            StudentDept: studentDeptElement.value,
+            StudentCity: studentCityElement.value
+          });
+
+          if (file) {
+            const attachmentDelete = spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles()
+              .then((attachments: IAttachment[]) => {
+                const deletePromises = attachments.map((attachment: IAttachment) => 
+                  spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
+                );
+                return Promise.all(deletePromises);
+              });
+
+            return Promise.all([itemUpdate, attachmentDelete]).then(() => {
+              return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.add(file.name, file);
+            });
+          }
+
+          return itemUpdate;
+        })
+        .then(() => {
+          alert('Update successful with attachment');
+          this.getStudent();
+        })
+        .catch(error => {
+          alert('Update failed: ' + error);
         });
+    } else {
+      alert('Please fill in all fields.');
+    }
+  }
 
-        if (file) {
-          const attachmentDelete = spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles()
+  private deleteStudent(): void {
+    const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
+
+    if (studentIdElement) {
+      const studentId = studentIdElement.value;
+
+      const listTitle = 'TestAPI';
+      spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
+        .then((items: IStudentItem[]) => {
+          const item = items[0];
+          return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles()
             .then((attachments: IAttachment[]) => {
               const deletePromises = attachments.map((attachment: IAttachment) => 
                 spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
               );
-              return Promise.all(deletePromises);
+              return Promise.all(deletePromises).then(() => item.Id);
             });
+        })
+        .then((itemId) => {
+          return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(itemId).delete();
+        })
+        .then(() => {
+          alert('Delete successful');
+          this.getStudent();
+        })
+        .catch(error => {
+          alert('Delete failed: ' + error);
+        });
+    } else {
+      alert('Please enter a student ID.');
+    }
+  }
 
-          return Promise.all([itemUpdate, attachmentDelete]).then(() => {
-            return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.add(file.name, file);
-          });
+  private getStudent(): void {
+    const listTitle = 'TestAPI';
+    spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.select('Id', 'Title', 'StudentName', 'StudentDept', 'StudentCity')()  // Include 'Id'
+      .then(async (items: IStudentItem[]) => {
+        let html: string = '<table border="1" width="100%"><tr><th>Student Id</th><th>Student Name</th><th>Student Dept</th><th>Student City</th><th>Attachments</th></tr>';
+        
+        for (const item of items) {
+          // Fetch attachments using the correct 'Id'
+          const attachments = await spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
+          const attachmentLinks = attachments.length > 0 
+            ? attachments.map((attachment: IAttachment) => `<a href="${attachment.ServerRelativeUrl}" target="_blank">${attachment.FileName}</a>`).join(', ') 
+            : 'No Attachments';
+
+          html += `<tr>
+                    <td>${item.Title}</td>
+                    <td>${item.StudentName}</td>
+                    <td>${item.StudentDept}</td>
+                    <td>${item.StudentCity}</td>
+                    <td>${attachmentLinks}</td>
+                  </tr>`;
         }
 
-        return itemUpdate;
+        html += '</table>';
+        const msgStatusElement = this.domElement.querySelector('#MsgStatus');
+        if (msgStatusElement) {
+          msgStatusElement.innerHTML = html;
+        }
       })
-      .then(() => {
-        alert('Update successful with attachment');
-        this.getStudent();
-      })
-      .catch(error => {
-        alert('Update failed: ' + error);
+      .catch((error: string) => {
+        alert('Error retrieving data: ' + error);
       });
-  } else {
-    alert('Please fill in all fields.');
   }
-}
-
-private deleteStudent(): void {
-  const studentIdElement = document.getElementById("studentId") as HTMLInputElement;
-
-  if (studentIdElement) {
-    const studentId = studentIdElement.value;
-
-    const listTitle = 'TestAPI';
-    spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.filter(`Title eq '${studentId}'`).top(1)()
-      .then((items: IStudentItem[]) => {
-        const item = items[0];
-        return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles()
-          .then((attachments: IAttachment[]) => {
-            const deletePromises = attachments.map((attachment: IAttachment) => 
-              spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
-            );
-            return Promise.all(deletePromises).then(() => item.Id);
-          });
-      })
-      .then((itemId) => {
-        return spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(itemId).delete();
-      })
-      .then(() => {
-        alert('Delete successful');
-        this.getStudent();
-      })
-      .catch(error => {
-        alert('Delete failed: ' + error);
-      });
-  } else {
-    alert('Please enter a student ID.');
-  }
-}
-
-private getStudent(): void {
-  const listTitle = 'TestAPI';
-  spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.select('Id', 'Title', 'StudentName', 'StudentDept', 'StudentCity')()  // Include 'Id'
-    .then(async (items: IStudentItem[]) => {
-      let html: string = '<table border="1" width="100%"><tr><th>Student Id</th><th>Student Name</th><th>Student Dept</th><th>Student City</th><th>Attachments</th></tr>';
-      
-      for (const item of items) {
-        // Fetch attachments using the correct 'Id'
-        const attachments = await spfi().using(SPFx(this.context)).web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
-        const attachmentLinks = attachments.length > 0 
-          ? attachments.map((attachment: IAttachment) => `<a href="${attachment.ServerRelativeUrl}" target="_blank">${attachment.FileName}</a>`).join(', ') 
-          : 'No Attachments';
-
-        html += `<tr>
-                  <td>${item.Title}</td>
-                  <td>${item.StudentName}</td>
-                  <td>${item.StudentDept}</td>
-                  <td>${item.StudentCity}</td>
-                  <td>${attachmentLinks}</td>
-                 </tr>`;
-      }
-
-      html += '</table>';
-      const msgStatusElement = this.domElement.querySelector('#MsgStatus');
-      if (msgStatusElement) {
-        msgStatusElement.innerHTML = html;
-      }
-    })
-    .catch((error: string) => {
-      alert('Error retrieving data: ' + error);
-    });
-}
 
   private checkListExists(): void {
     const listTitle = 'TestAPI';

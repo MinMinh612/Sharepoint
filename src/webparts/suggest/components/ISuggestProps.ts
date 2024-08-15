@@ -1,3 +1,4 @@
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 export interface ISuggestProps {
   description: string;
   isDarkTheme: boolean;
@@ -16,6 +17,8 @@ export interface ISuggestProps {
   File?: File;  
   NoteSuggest: string;
   StatusSuggestion: string;
+
+  context: WebPartContext;
 
 }
 

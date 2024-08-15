@@ -37,14 +37,15 @@ export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPar
 
   public render(): void {
     const formDataList: IFormData[] = [
+      // Your data here
     ];
-    
+
     const handleDeleteRow = (index: number): void => {
-      // DELET
+      // DELETE
     };
     
     const handleAddRow = (): void => {
-      // NEW
+      // ADD
     };
 
     const editRow = (index: number): void => {
@@ -70,6 +71,7 @@ export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPar
         editable: true,
         editRow: editRow,
         StatusSuggestion: this.properties.StatusSuggestion,
+        context: this.context, // Use this.context instead of this.WebPartContext
       }
     );
   
@@ -83,18 +85,18 @@ export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPar
   }
 
   private _getEnvironmentMessage(): Promise<string> {
-    if (!!this.context.sdks.microsoftTeams) { 
+    if (!!this.context.sdks.microsoftTeams) {
       return this.context.sdks.microsoftTeams.teamsJs.app.getContext()
         .then((context: ITeamsContext): string => {
           let environmentMessage: string = '';
           switch (context.app.host.name) {
-            case 'Office': 
+            case 'Office':
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOffice : strings.AppOfficeEnvironment;
               break;
-            case 'Outlook': 
+            case 'Outlook':
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentOutlook : strings.AppOutlookEnvironment;
               break;
-            case 'Teams': 
+            case 'Teams':
             case 'TeamsModern':
               environmentMessage = this.context.isServedFromLocalhost ? strings.AppLocalEnvironmentTeams : strings.AppTeamsTabEnvironment;
               break;
@@ -124,7 +126,6 @@ export default class SuggestWebPart extends BaseClientSideWebPart<ISuggestWebPar
       this.domElement.style.setProperty('--link', semanticColors.link || null);
       this.domElement.style.setProperty('--linkHovered', semanticColors.linkHovered || null);
     }
-
   }
 
   protected onDispose(): void {
