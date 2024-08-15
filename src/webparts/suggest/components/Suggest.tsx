@@ -89,7 +89,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
         }
         const item = items[0];
         const itemUpdatePromise = sp.web.lists.getByTitle(listTitle).items.getById(item.Id).update({
-          // Update other fields if necessary
+          // Thêm biến khác
         });
 
         if (file) {
@@ -148,10 +148,8 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
     const sp = spfi().using(SPFx(this.props.context));
   
     try {
-      // Fetch items from the SharePoint list
       const items = await sp.web.lists.getByTitle(listTitle).items.select('Title')();
       
-      // Map over the items and fetch attachments
       const suggestions: dataSuggest[] = await Promise.all(items.map(async (item: { Title: string }) => {
         const attachments = await sp.web.lists.getByTitle(listTitle).items.filter(`Title eq '${item.Title}'`).top(1)().then((items) => 
           sp.web.lists.getByTitle(listTitle).items.getById(items[0].Id).attachmentFiles()
@@ -172,7 +170,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
       alert('Error retrieving data: ' + error.message);
     }
   }
-    
+
   private checkListExists(): void {
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
