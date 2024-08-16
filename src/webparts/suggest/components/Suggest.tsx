@@ -38,27 +38,33 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
   private async addSuggest(): Promise<void> {
     const descriptionElement = document.getElementById("description") as HTMLInputElement;
     const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
-
+  
     if (descriptionElement && fileInputElement) {
       const Description = descriptionElement.value;
-      const file = fileInputElement.files ? fileInputElement.files[0] : null;
-
-      if (!file) {
-        alert('Please select a file.');
+      const files = fileInputElement.files;
+  
+      if (!files || files.length === 0) {
+        alert('Please select at least one file.');
         return;
       }
-
+  
       const listTitle = 'Suggest';
       const sp = spfi().using(SPFx(this.props.context));
-
+  
       try {
         const response = await sp.web.lists.getByTitle(listTitle).items.add({
           Title: Description,
         });
         const itemId = response.data?.Id || response.Id;
+  
         if (itemId) {
-          await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, file);
-          alert('Add successful with attachment');
+          // vòng lặp thêm file
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, file);
+          }
+  
+          alert('Add successful with attachments');
           await this.getSuggest();
         } else {
           alert('Item added but no ID returned.');
@@ -70,41 +76,47 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
       alert('Please fill in all fields.');
     }
   }
-
+    
   private async editSuggest(): Promise<void> {
     const descriptionElement = document.getElementById("description") as HTMLInputElement;
     const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
-
+  
     if (descriptionElement) {
       const Description = descriptionElement.value;
-      const file = fileInputElement.files ? fileInputElement.files[0] : null;
-
+      const files = fileInputElement.files;
+  
       const listTitle = 'Suggest';
       const sp = spfi().using(SPFx(this.props.context));
-
+  
       try {
         const items = await sp.web.lists.getByTitle(listTitle).items.filter(`Title eq '${Description}'`).top(1)();
         if (items.length === 0) {
           throw new Error('No item found to update.');
         }
         const item = items[0];
-        const itemUpdatePromise = sp.web.lists.getByTitle(listTitle).items.getById(item.Id).update({
-          // Thêm biến khác
+  
+        // delete file cũ
+        const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
+        const deletePromises = attachments.map((attachment: IAttachment) =>
+          sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
+        );
+        await Promise.all(deletePromises); // chờ xóa hết để tránh bất đồng bộ
+  
+        // updata lại
+        await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).update({
+          // các trường khác
         });
-
-        if (file) {
-          const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
-          const deletePromises = attachments.map((attachment: IAttachment) => 
-            sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
-          );
-          await Promise.all(deletePromises);
-          await itemUpdatePromise;
-          await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.add(file.name, file);
-        } else {
-          await itemUpdatePromise;
+  
+        // thêm file mới
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.add(file.name, file);
+          }
         }
-        alert('Update successful with attachment');
-        await this.getSuggest();
+  
+        alert('Update successful with new attachments');
+        await this.getSuggest(); // tự động getdata lại
       } catch (error) {
         alert('Update failed: ' + error.message);
       }
@@ -112,7 +124,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
       alert('Please fill in all fields.');
     }
   }
-
+      
   private async deleteSuggest(): Promise<void> {
     const descriptionElement = document.getElementById("description") as HTMLInputElement;
 
@@ -164,7 +176,6 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
         };
       }));
   
-      // Update the component state with the fetched suggestions
       this.setState({ suggestions });
     } catch (error) {
       alert('Error retrieving data: ' + error.message);
@@ -209,12 +220,12 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
           <table>
             <tbody>
               <tr>
-                <td>Nội dung check delete:</td>
+                <td>Nội dung:</td>
                 <td><input type='text' id='description' /></td>
               </tr>
               <tr>
                 <td>Files:</td>
-                <td><input type="file" id="newfile" /></td>
+                <td><input type="file" id="newfile" multiple /></td>
               </tr>
             </tbody>
           </table>
