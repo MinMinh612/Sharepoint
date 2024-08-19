@@ -8,6 +8,7 @@ export interface IDemoSuggestProps {
 
 export interface DataSuggest {
   Title: string;
+  Person: string;
   Attachments?: string[]; 
 }
 
@@ -34,11 +35,12 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions }) => {
           <table>
             <thead>
               <tr>
-                <th style={{ width: '100px' }}>
+                <th style={{ width: '50px' }}>
                   <input type="checkbox" />
                 </th>
                 <th style={{ width: '200px' }}>Nội dung</th>
                 <th style={{ width: '150px' }}>Tài liệu</th>
+                <th style={{ width: '150px' }}>Người duyệt</th>
               </tr>
             </thead>
             <tbody>
@@ -59,6 +61,9 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions }) => {
                         </a>
                       </div>
                     )) || 'No attachments'}
+                  </td>
+                  <td>
+                    <input type="text" value={suggestion.Person} readOnly />
                   </td>
                 </tr>
               ))}

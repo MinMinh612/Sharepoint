@@ -77,3 +77,5 @@ Cài ban đầu: npm install -g gulp typescript yo @microsoft/generator-sharepoi
 Lệnh build giao diện: yo @microsoft/sharepoint
 
 Server anh Phú: https://vietasoft.sharepoint.com/sites/Project_eOffice/_layouts/15/workbench.aspx
+
+
