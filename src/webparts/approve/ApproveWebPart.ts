@@ -51,6 +51,7 @@ export default class ApproveWebPart extends BaseClientSideWebPart<IApproveWebPar
         handleAddRow: handleAddRow,
         editable: true,
         editRow: editRow,
+        context: this.context,
       }
     );
 

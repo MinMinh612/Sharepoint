@@ -1,4 +1,5 @@
 import { IFormData } from '../../suggest/components/ISuggestProps';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 
 
 export interface IApproveProps {
@@ -12,5 +13,5 @@ export interface IApproveProps {
   editable: boolean;
   editRow: (index: number) => void;
   handleAddRow: () => void; 
-
+  context: WebPartContext;
 }

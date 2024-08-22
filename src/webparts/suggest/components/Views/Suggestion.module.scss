@@ -85,13 +85,13 @@
   width: 150px; 
 }
 
-.tableContainer tbody tr:nth-child(odd) {
-  background-color: #f9f9f9;
-}
+// .tableContainer tbody tr:nth-child(odd) {
+//   background-color: #f9f9f9;
+// }
 
-.tableContainer tbody tr:nth-child(even) {
-  background-color: #ffffff;
-}
+// .tableContainer tbody tr:nth-child(even) {
+//   background-color: #ffffff;
+// }
 
 .tableContainer td {
   padding: 8px;
@@ -109,7 +109,7 @@
   padding: 4px;
   width: 100%;
   box-sizing: border-box;
-  background-color: #ffffff;
+  // background-color: #ffffff;
 }
 
 .tableContainer td button {
@@ -243,3 +243,118 @@
   margin-top: 10px;
 }
 
+.buttonGroup {
+  display: flex;
+  gap: 15px;  
+  justify-content: center; 
+  align-items: center;   
+}
+
+.buttonGroup button {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 5px; 
+}
+
+.buttonGroup button:hover {
+  opacity: 0.8;
+}
+
+.btnApprove {
+  background-color: #90ee90; 
+  border: 1px solid #4CAF50; 
+  font-size: 14px;
+}
+
+.btnReject {
+  background-color: #f8d7da; 
+  border: 1px solid #f44336; 
+  font-size: 12px;
+}
+
+
+
+
+
+.attachmentContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.attachmentItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f8f8;
+  padding: 5px;
+  border-radius: 8px;
+  width: 80px; /* Giảm kích thước */
+  text-align: center;
+}
+
+.removeButton {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: none;
+  border: none;
+  color: #d9534f;
+  cursor: pointer;
+  font-size: 12px; /* Giảm kích thước của nút xóa */
+}
+
+.removeButton:hover {
+  color: #ff0000;
+}
+
+.attachmentIcon {
+  font-size: 20px; /* Giảm kích thước biểu tượng */
+  margin-bottom: 5px;
+}
+
+.attachmentLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.attachmentFileName {
+  text-decoration: none;
+  color: #0078d4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70px; /* Điều chỉnh để phù hợp với kích thước nhỏ hơn */
+}
+
+.attachmentFileName:hover {
+  text-decoration: underline;
+}
+
+.showMoreButton {
+  margin-top: 10px;
+  background-color: #0078d4;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.showMoreButton:hover {
+  background-color: #005a9e;
+}
+
+.additionalFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
