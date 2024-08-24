@@ -17,6 +17,7 @@ interface IApproveState {
   currentIndex: number | undefined;
   error: string;
   description: string;
+  filterStatus: string;
 }
 
 export interface dataSuggest {
@@ -24,6 +25,7 @@ export interface dataSuggest {
   Person: string;
   Status: string;
   Attachments?: { FileName: string; Url: string; }[];
+  ReasonPerson?: string;
 }
 
 interface IAttachment {
@@ -42,6 +44,7 @@ export default class DemoApprove extends React.Component<IApproveProps, IApprove
       currentIndex: undefined,
       error: '',  
       description: '',
+      filterStatus: 'Staff',  // Default to "Chờ duyệt"
     };
     this.getApprove = this.getApprove.bind(this);
     this.postComment = this.postComment.bind(this);
@@ -95,45 +98,47 @@ export default class DemoApprove extends React.Component<IApproveProps, IApprove
   private async getApprove(): Promise<void> {
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
-
+    const { filterStatus } = this.state;
+  
     try {
       const currentUser = await sp.web.currentUser();
       const items = await sp.web.lists.getByTitle(listTitle).items
-        .filter(`Status eq 'Staff'`)
-        .select('Id', 'Title', 'Person/Id', 'Person/Title', 'Status')
+        .filter(`Status eq '${filterStatus}'`)
+        .select('Id', 'Title', 'Person/Id', 'Person/Title', 'Status', 'ReasonPerson')  // Include ReasonPerson
         .expand('Person')();
-
-      const suggestions: (dataSuggest | null)[] = await Promise.all(items.map(async (item: { Id: number, Title: string, Person?: { Title: string }, Status: string }) => {
+  
+      const suggestions: (dataSuggest | null)[] = await Promise.all(items.map(async (item: { Id: number, Title: string, Person?: { Title: string }, Status: string, ReasonPerson?: string }) => {
         if (item.Person && item.Person.Title !== currentUser.Title) {
           return null;
         }
-
+  
         const attachments = await sp.web.lists.getByTitle(listTitle).items
           .getById(item.Id)
           .attachmentFiles();
-
-          const attachmentLinks = attachments.length > 0 
+  
+        const attachmentLinks = attachments.length > 0 
           ? attachments.map((attachment: IAttachment) => ({
               FileName: attachment.FileName,
-              Url: attachment.ServerRelativeUrl, // Store both filename and URL
+              Url: attachment.ServerRelativeUrl,
             })) 
           : [];
-
+  
         return {
           Title: item.Title,
           Person: item.Person?.Title,
           Status: item.Status,
           Attachments: attachmentLinks,
+          ReasonPerson: item.ReasonPerson  // Assign ReasonPerson
         } as dataSuggest;
       }));
-
+  
       const filteredSuggestions = suggestions.filter((s): s is dataSuggest => s !== null);
       this.setState({ suggestions: filteredSuggestions });
     } catch (error) {
       alert('Error retrieving data: ' + error.message);
     }
   }
-
+  
   private async postComment(): Promise<void> {
     const descriptionElement = document.getElementById("description") as HTMLInputElement | null;
     const reasonPersonElement = document.getElementById("ReasonPerson") as HTMLInputElement | null;
@@ -169,6 +174,7 @@ export default class DemoApprove extends React.Component<IApproveProps, IApprove
 
             alert(`Update successful: Status set to ${status}`);
             await this.getApprove();
+            this.handleClose(); //Đóng popup
         } catch (error) {
             alert('Update failed: ' + error.message);
         }
@@ -177,42 +183,57 @@ export default class DemoApprove extends React.Component<IApproveProps, IApprove
     }
 }
 
+public render(): React.ReactElement<IApproveProps> {
+  const { showPopup, popupReason, popupAction, error, description, filterStatus } = this.state;
 
-  public render(): React.ReactElement<IApproveProps> {
-    const { showPopup, popupReason, popupAction, error, description } = this.state;
-
-    return (
-      <div className={styles.formContainer}>
-        <form className={styles.tableContainer}>
-          <div className={styles.actionButtons}>
-            <button type="button" onClick={this.getApprove} className={`${styles.btn} ${styles.btnEdit}`}>
-              <FaSearch color="blue" /> Tra cứu 
-            </button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '300px' }}>Nội dung deny</th>
-                <th style={{ width: '200px' }}>Tài liệu</th>
+  return (
+    <div className={styles.formContainer}>
+      <form className={styles.tableContainer}>
+        <div className={styles.actionButtons}>
+          <select
+            onChange={(e) => this.setState({ filterStatus: e.target.value })}
+          >
+            <option value="Staff">Chờ duyệt</option>
+            <option value="Approve">Đã duyệt</option>
+            <option value="Deny">Trả lại</option>
+          </select>
+          <button type="button" onClick={this.getApprove} className={`${styles.btn} ${styles.btnEdit}`}>
+            <FaSearch color="blue" /> Tra cứu 
+          </button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style={{ width: '200px' }}>Nội dung</th>
+              <th style={{ width: '200px' }}>Tài liệu</th>
+              {filterStatus === 'Staff' && (
                 <th style={{ width: '180px' }}>Duyệt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {this.state.suggestions.map((suggestion: dataSuggest, index: number) => (
-                <tr key={index}>
-                  <td>
-                    <input type="text" value={suggestion.Title} readOnly />
-                  </td>
-                  <td>
-                    {suggestion.Attachments?.map((file, fileIndex) => (
-                      <div key={fileIndex} className={styles.fileItem}>
-                        {this._renderFileIcon(file.FileName)}
-                        <a href={file.Url} target="_blank" rel="noopener noreferrer">
-                          {file.FileName}
-                        </a>
-                      </div>
-                    )) || 'No attachments'}
-                  </td>
+              )}
+              {(filterStatus === 'Approve' || filterStatus === 'Deny') && (
+                <>
+                  <th style={{ width: '180px' }}>Người duyệt</th>
+                  <th style={{ width: '200px' }}>Lý do</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {this.state.suggestions.map((suggestion: dataSuggest, index: number) => (
+              <tr key={index}>
+                <td>
+                  <input type="text" value={suggestion.Title} readOnly />
+                </td>
+                <td>
+                  {suggestion.Attachments?.map((file, fileIndex) => (
+                    <div key={fileIndex} className={styles.fileItem}>
+                      {this._renderFileIcon(file.FileName)}
+                      <a href={file.Url} target="_blank" rel="noopener noreferrer">
+                        {file.FileName}
+                      </a>
+                    </div>
+                  )) || 'No attachments'}
+                </td>
+                {filterStatus === 'Staff' && (
                   <td>
                     <div className={styles.buttonGroup}>
                       <button
@@ -231,43 +252,50 @@ export default class DemoApprove extends React.Component<IApproveProps, IApprove
                       </button>
                     </div>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </form>
+                )}
+                {(filterStatus === 'Approve' || filterStatus === 'Deny') && (
+                  <>
+                    <td>{suggestion.Person}</td>
+                    <td>{suggestion.ReasonPerson || 'Không có lý do'}</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </form>
 
-        {showPopup && (
-          <div className={styles.popupOverlay}>
-            <div className={styles.popupContent}>
-              <h2>{popupAction === 'approve' ? 'Lý do Duyệt' : 'Lý do Không Duyệt'}</h2>
-              <div style={{ display: 'none' }}>
-                <input
-                  type='text'
-                  id='description'
-                  value={description}
-                  onChange={(e) => this.setState({ description: e.target.value })}
-                />
-              </div>
-              <textarea
-                value={popupReason}
-                onChange={this.handlePopupChange}
-                placeholder="Nhập lý do... "
-                id="ReasonPerson"
+      {showPopup && (
+        <div className={styles.popupOverlay}>
+          <div className={styles.popupContent}>
+            <h2>{popupAction === 'approve' ? 'Lý do Duyệt' : 'Lý do Không Duyệt'}</h2>
+            <div style={{ display: 'none' }}>
+              <input
+                type='text'
+                id='description'
+                value={description}
+                onChange={(e) => this.setState({ description: e.target.value })}
               />
-              {error && <p className={styles.errorText}>{error}</p>}
-              <div className={styles.buttonContainer}>
-                <button type="button" className={`${styles.submitBtn} ${styles.popupButton}`} onClick={this.postComment}>
-                  Xác nhận
-                </button>
-                <button className={`${styles.closeBtn} ${styles.popupButton}`} onClick={this.handleClose}>
-                  Đóng
-                </button>
-              </div>
+            </div>
+            <textarea
+              value={popupReason}
+              onChange={this.handlePopupChange}
+              placeholder="Nhập lý do... "
+              id="ReasonPerson"
+            />
+            {error && <p className={styles.errorText}>{error}</p>}
+            <div className={styles.buttonContainer}>
+              <button type="button" className={`${styles.submitBtn} ${styles.popupButton}`} onClick={this.postComment}>
+                Xác nhận
+              </button>
+              <button className={`${styles.closeBtn} ${styles.popupButton}`} onClick={this.handleClose}>
+                Đóng
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    );
-  }
+        </div>
+      )}
+    </div>
+  );
+}
 }

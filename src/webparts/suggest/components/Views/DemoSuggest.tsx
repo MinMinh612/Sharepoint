@@ -54,7 +54,7 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
             <thead>
               <tr>
                 <th style={{ width: '50px' }}>Select</th>
-                <th style={{ width: '200px' }}>Nội dung</th>
+                <th style={{ width: '200px' }}>Nội dung nè 2</th>
                 <th style={{ width: '300px' }}>Tài liệu</th>
               </tr>
             </thead>

@@ -62,123 +62,119 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
     this.EditButtonClick = this.EditButtonClick.bind(this);
   }
 
-  private async addSuggest(): Promise<void> {
+  private async addSuggest(status: string = 'Draft'): Promise<void> {
     const descriptionElement = document.getElementById("description") as HTMLInputElement;
     const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
   
-    if (descriptionElement && fileInputElement) {
-      const Description = descriptionElement.value;
-      const files = fileInputElement.files;
+    const Title = descriptionElement ? descriptionElement.value : '';
+    const files = fileInputElement ? fileInputElement.files : null;
   
-      if (!Description || !files || files.length === 0) {
-        alert('Please fill in all fields and select at least one file.');
-        return;
+    const listTitle = 'Suggest';
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+      let userId = null;
+      if (this.state.selectedUser) {
+        const user = await this.getUserByEmail(this.state.selectedUser);
+        if (user) {
+          userId = user.Id;
+        }
       }
   
-      const listTitle = 'Suggest';
-      const sp = spfi().using(SPFx(this.props.context));
+      // Ensure PersonId is an array (even if empty)
+      const personIds = userId ? [userId] : [];
   
-      try {
-        // Lấy thông tin
-        const user = await this.getUserByEmail(this.state.selectedUser);
-        if (!user) {
-          alert('User not found');
-          return;
-        }
+      // Check if a draft already exists with the same Title
+      const items = await sp.web.lists.getByTitle(listTitle).items.filter(`Title eq '${Title}'`).top(1)();
+      let itemId;
   
-        // Thêm mục mới với cột "Person"
+      if (items.length > 0) {
+        // If item exists, update it
+        itemId = items[0].Id;
+        await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
+          Status: status,
+          PersonId: personIds,  // Assign the array here
+        });
+      } else {
+        // If no item exists, create a new one
         const response = await sp.web.lists.getByTitle(listTitle).items.add({
-          Title: Description,
-          Status: 'Staff',
-          PersonId: user.Id 
+          Title: Title || '',
+          Status: status,
+          PersonId: personIds  // Assign the array here
         });
-  
-        const itemId = response.data?.Id || response.Id;
-  
-        if (itemId) {
-          // Thêm các tệp đính kèm
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, file);
-          }
-  
-          alert('Add successful with attachments');
-          await this.getSuggest();
-          this.toggleModal(); // Đóng popup sau khi thêm
-        } else {
-          alert('Item added but no ID returned.');
-        }
-      } catch (error) {
-        alert('Add failed: ' + error.message);
+        itemId = response.data?.Id || response.Id;
       }
-    } else {
-      alert('Please fill in all fields.');
-    }
-  }
-            
-
-  private async editSuggest(): Promise<void> {
-    const { selectedSuggestion } = this.state;
   
-    if (selectedSuggestion) {
-      const sp = spfi().using(SPFx(this.props.context));
-      const listTitle = 'Suggest';
-  
-      try {
-        const items = await sp.web.lists.getByTitle(listTitle).items.filter(`Title eq '${selectedSuggestion.Title}'`).top(1)();
-        if (items.length === 0) {
-          throw new Error('No item found to update.');
+      if (itemId && files && files.length > 0) {
+        // Add attachments if any
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, file);
         }
-        const item = items[0];
+      }
   
-        const descriptionElement = document.getElementById("description") as HTMLInputElement;
-        const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
-  
-        const Description = descriptionElement.value;
-        const files = fileInputElement.files;
-  
-        // Lấy thông tin từ mail
-        const user = await this.getUserByEmail(this.state.selectedUser);
-        if (!user) {
-          alert('User not found');
-          return;
-        }
-  
-        // Xóa các tệp cũ
-        const existingAttachments = selectedSuggestion.Attachments || [];
-        const currentAttachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
-        const deletePromises = currentAttachments
-          .filter((attachment: IAttachment) => !existingAttachments.find(a => a.FileName === attachment.FileName))
-          .map((attachment: IAttachment) =>
-            sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.getByName(attachment.FileName).delete()
-          );
-        await Promise.all(deletePromises);
-  
-        // Cập nhật mục
-        await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).update({
-          Title: Description,
-          PersonId: user.Id 
-        });
-  
-        // Thêm tệp mới
-        if (files && files.length > 0) {
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles.add(file.name, file);
-          }
-        }
-  
-        alert('Update successful with new attachments');
+      if (status === 'Draft') {
+        console.log('Auto-saved as Draft');
+      } else {
+        alert('Add successful with attachments');
         await this.getSuggest();
-        this.toggleModal(); // Đóng modal sau khi cập nhật
-      } catch (error) {
-        alert('Update failed: ' + error.message);
+        this.toggleModal();
       }
-    } else {
-      alert('No suggestion selected for editing.');
+    } catch (error) {
+      alert('Add failed: ' + error.message);
     }
   }
       
+  private async editSuggest(status: string = 'Draft'): Promise<void> {
+    const descriptionElement = document.getElementById("description") as HTMLInputElement;
+    const fileInputElement = document.getElementById("newfile") as HTMLInputElement;
+  
+    const Title = descriptionElement ? descriptionElement.value : '';
+    const files = fileInputElement ? fileInputElement.files : null;
+  
+    const listTitle = 'Suggest';
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+      let userId = null;
+      if (this.state.selectedUser) {
+        const user = await this.getUserByEmail(this.state.selectedUser);
+        if (user) {
+          userId = user.Id;
+        }
+      }
+  
+      // Check if an item exists with the same Title
+      const items = await sp.web.lists.getByTitle(listTitle).items.filter(`Title eq '${Title}'`).top(1)();
+      if (items.length === 0) {
+        throw new Error('No item found to update.');
+      }
+      const itemId = items[0].Id;
+  
+      // Update the item
+      await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
+        Title: Title,
+        Status: 'Staff',
+        PersonId: userId
+      });
+  
+      if (files && files.length > 0) {
+        // Add new attachments
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, file);
+        }
+      }
+  
+      alert('Update successful with new attachments');
+      await this.getSuggest();
+      this.toggleModal();
+    } catch (error) {
+      alert('Update failed: ' + error.message);
+    }
+  }
+    
+  
   private async deleteSuggest(): Promise<void> {
     const { selectedSuggestions } = this.state;
     const maxRetries = 3; // Số lần thử lại tối đa
@@ -230,36 +226,31 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
   private async getSuggest(): Promise<void> {
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
-      const items = await sp.web.lists.getByTitle(listTitle).items.select('Title')(); // Only selecting 'Title'
-    
-      const suggestions: dataSuggest[] = await Promise.all(items.map(async (item: { Title: string }) => {
-        const attachments = await sp.web.lists.getByTitle(listTitle).items
-          .filter(`Title eq '${item.Title}'`)
-          .top(1)()
-          .then((items) =>
-            sp.web.lists.getByTitle(listTitle).items.getById(items[0].Id).attachmentFiles()
-          );
-  
-        const attachmentLinks = attachments.length > 0 
-          ? attachments.map((attachment: IAttachment) => ({
-              FileName: attachment.FileName,
-              Url: attachment.ServerRelativeUrl // Mapping to the correct URL property
-            }))
-          : [];
-  
-        return {
-          Title: item.Title,
-          Attachments: attachmentLinks // No need for 'Person' here
-        };
-      }));
-  
-      this.setState({ suggestions });
+        const items = await sp.web.lists.getByTitle(listTitle).items.select('Id', 'Title')();
+
+        const suggestions: dataSuggest[] = await Promise.all(items.map(async (item: { Id: number; Title: string }) => {
+            const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
+
+            const attachmentLinks = attachments.length > 0 
+                ? attachments.map((attachment: IAttachment) => ({
+                    FileName: attachment.FileName,
+                    Url: attachment.ServerRelativeUrl
+                }))
+                : [];
+
+            return {
+                Title: item.Title,
+                Attachments: attachmentLinks
+            };
+        }));
+
+        this.setState({ suggestions });
     } catch (error) {
-      alert('Error retrieving data: ' + error.message);
+        alert('Error retrieving data: ' + error.message);
     }
-  }
+}
       
   private checkListExists(): void {
     const listTitle = 'Suggest';
@@ -308,14 +299,15 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
   private async getUserByEmail(email: string): Promise<ISiteUserInfo | null> {
     const sp = spfi().using(SPFx(this.props.context));
     try {
-      const user = await sp.web.siteUsers.getByEmail(email)();
-      return user;
+        const ensureUserResult = await sp.web.ensureUser(email); //dùng ensureUser cho chắc kèo
+        return ensureUserResult; 
     } catch (error) {
-      console.error('Error getting user by email:', error);
-      return null;
+        console.error('Error getting or ensuring user by email:', error.message);
+        return null;
     }
   }
-    
+
+  
   public componentDidMount(): void {
     this.checkListExists();
     this.getUsers().then(() => {
@@ -355,6 +347,15 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
     }
   };
 
+  private handleInputBlur(): void {
+    if (this.state.selectedSuggestion) {
+      this.editSuggest('Draft').catch(console.error);
+    } else {
+      this.addSuggest('Draft').catch(console.error);
+    }
+  }
+  
+
   
   
   public render(): React.ReactElement<ISuggestProps> {
@@ -383,7 +384,12 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
                   <tr>
                     <td>Nội dung:</td>
                     <td>
-                      <input type='text' id='description' defaultValue={this.state.selectedSuggestion?.Title || ''} />
+                      <input 
+                        type='text' 
+                        id='description' 
+                        defaultValue={this.state.selectedSuggestion?.Title || ''} 
+                        onBlur={this.handleInputBlur.bind(this)} // Save on blur (focus out)
+                      />
                     </td>
                   </tr>
                   <tr>
@@ -392,6 +398,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
                       <select
                         value={this.state.selectedUser}
                         onChange={(e) => this.setState({ selectedUser: e.target.value })}
+                        onBlur={this.handleInputBlur.bind(this)} // Save on blur (focus out)
                       >
                         <option value="">Chọn người dùng</option>
                         {this.state.users.map(user => (
@@ -450,12 +457,12 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
                       ) : (
                         <span>No attachments available</span>
                       )}
-                      <input type="file" id="newfile" multiple />
+                      <input type="file" id="newfile" multiple onBlur={this.handleInputBlur.bind(this)} />
                     </td>
                   </tr>
                 </tbody>
               </table>
-              <button onClick={this.state.selectedSuggestion ? this.editSuggest : this.addSuggest} className={`${styles.btn} ${styles.btnAdd}`}>
+              <button onClick={() => this.state.selectedSuggestion ? this.editSuggest() : this.addSuggest('Staff')} className={`${styles.btn} ${styles.btnAdd}`}>
                 {this.state.selectedSuggestion ? "Cập nhật" : "Lưu"}
               </button>
               <button onClick={this.toggleModal} className={`${styles.btn} ${styles.btnDelete}`}>Đóng</button>

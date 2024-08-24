@@ -2,5 +2,5 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/spfx-serve.schema.json",
   "port": 4321,
   "https": true,
-  "initialPage": "https://hcmunreeduvn.sharepoint.com/sites/E-Office/_layouts/15/workbench.aspx"
+  "initialPage": "https://vietasoft.sharepoint.com/sites/Project_eOffice/_layouts/15/workbench.aspx"
 }
