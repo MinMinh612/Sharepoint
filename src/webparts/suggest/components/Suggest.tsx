@@ -149,13 +149,15 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
       if (items.length === 0) {
         throw new Error('No item found to update.');
       }
+
+      const personIds = userId ? [userId] : [];
       const itemId = items[0].Id;
   
       // Update the item
       await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
         Title: Title,
         Status: 'Staff',
-        PersonId: userId
+        PersonId: personIds
       });
   
       if (files && files.length > 0) {
@@ -299,7 +301,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
   private async getUserByEmail(email: string): Promise<ISiteUserInfo | null> {
     const sp = spfi().using(SPFx(this.props.context));
     try {
-        const ensureUserResult = await sp.web.ensureUser(email); //dùng ensureUser cho chắc kèo
+        const ensureUserResult = await sp.web.ensureUser(email); //dùng ensureUser cho chắc k
         return ensureUserResult; 
     } catch (error) {
         console.error('Error getting or ensuring user by email:', error.message);
