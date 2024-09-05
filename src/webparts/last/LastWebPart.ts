@@ -64,7 +64,8 @@ export default class LastWebPart extends BaseClientSideWebPart<ILastWebPartProps
         updatePrice: this.updatePrice.bind(this),
         updateTotal: this.updateTotal.bind(this),
         updateStatus: this.updateStatus.bind(this),
-        updateApprove: this.updateApprove.bind(this)
+        updateApprove: this.updateApprove.bind(this),
+        context: this.context,
       }
     );
 

@@ -1,77 +1,3 @@
-:root {
-  --default-color: rgb(182, 171, 171); 
-  --completed-color: #bda436ec; 
-  --inProgress-color: #bda436ec; 
-  --connector-opacity: 0.3; 
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  position: relative;
-  padding: 20px 0;
-}
-
-.statusStep {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-}
-
-.statusCircle {
-  width: 30px; /* Reduced size */
-  height: 30px; /* Reduced size */
-  border-radius: 50%;
-  background-color: var(--default-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  text-align: center;
-  position: relative;
-  z-index: 1;
-  transition: background-color 0.3s;
-}
-
-.connector {
-  flex-grow: 1;
-  height: 4px;
-  background-color: var(--default-color);
-  opacity: var(--connector-opacity);
-  margin: 30px -15px 0 -50px; 
-  align-self: center;
-  transition: opacity 0.3s;
-}
-
-.statusLabel {
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #333;
-  position: relative;
-  top: -8px;
-  z-index: 2;
-}
-
-/* Styles default  */
-.statusStep.default .statusCircle {
-  background-color: var(--default-color);
-}
-
-/* Styles completed  */
-.statusStep.completed .statusCircle {
-  background-color: var(--completed-color);
-}
-
-/* Styles inProgress */
-.statusStep.inProgress .statusCircle {
-  background-color: var(--inProgress-color);
-}
-
-
-
 .body {
   flex: 1;
   display: flex;
@@ -153,6 +79,21 @@ input {
   padding: 5px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  width: 223px; //input thường
+}
+
+input[type="text"] {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 210px;
+}
+
+input[type="datetime-local"] {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 223px;
 }
 
 .textArea {
@@ -170,13 +111,13 @@ input {
   border: 1px solid #ccc;
   border-radius: 4px;
   height: 30px;
+  width: 223px; //input select
 }
 
 .date{
   appearance: none; /* Xóa mũi tên xuống mặc định */
   -webkit-appearance: none; /* Xóa mũi tên trên các trình duyệt WebKit */
   -moz-appearance: none; /* Xóa mũi tên trên Firefox */
-
 }
 
 
@@ -224,8 +165,8 @@ input {
   background-color: #ffba66; 
 }
 
-.btnShare {
-  background-color: #ffba66; 
+.btnDelete {
+  background-color: #db4e65; 
 }
 
 .btnPrint {
@@ -262,6 +203,8 @@ input {
 
 .fileInput {
   margin-bottom: 10px;
+  opacity: 0;
+  width: 223px;  // input file
 }
 
 .fileContainer {
@@ -269,13 +212,15 @@ input {
   border-radius: 4px; 
   overflow: hidden; 
   width: auto;
+  border: 1px solid #ccc;
+  height: 29px;
 }
 
 .fileItem {
   display: flex;
   align-items: center;
   margin-bottom: 5px;
-}
+}s
 
 .fileItem a {
   margin-left: 8px;
@@ -315,8 +260,112 @@ input {
   margin-top: 0.5rem;
 }
 
+.removeFileButton {
+  background: none;
+  border: none;
+  color: red;
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: 8px;
+}
 
 
 
 
 
+
+
+.attachmentContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 80px;
+  margin-top: 10px;
+  width: auto;
+}
+
+.attachmentItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  // background-color: #f8f8f8;
+  padding: 5px;
+  border-radius: 8px;
+  width: 50px; /* Giảm kích thước */
+  text-align: center;
+  margin-top: -50px;
+}
+
+.removeButton {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: none;
+  border: none;
+  color: #d9534f;
+  cursor: pointer;
+  font-size: 12px; 
+}
+
+.removeButton:hover {
+  color: #ff0000;
+}
+
+.attachmentIcon {
+  font-size: 25px; 
+  margin-bottom: 5px;
+}
+
+.attachmentLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.attachmentLink a {
+  color: #131414; /* Màu của tên file */
+  text-decoration: none; /* Bỏ gạch chân */
+  font-size: 10px; /* Kích thước chữ */
+  white-space: nowrap; /* Không cho phép xuống dòng */
+  overflow: hidden; /* Ẩn phần vượt quá */
+  text-overflow: ellipsis; /* Hiển thị "..." ở cuối nếu tên file quá dài */
+  display: inline-block;
+  max-width: 40px; /* Đặt độ rộng tối đa cho tên file, điều chỉnh theo nhu cầu của bạn */
+}
+
+
+.attachmentFileName {
+  text-decoration: none;
+  color: #0078d4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50px; /* Điều chỉnh để phù hợp với kích thước nhỏ hơn */
+}
+
+.attachmentFileName:hover {
+  text-decoration: underline;
+}
+
+.showMoreButton {
+  margin-top: 10px;
+  background-color: #0078d4;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.showMoreButton:hover {
+  background-color: #005a9e;
+}
+
+.additionalFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}

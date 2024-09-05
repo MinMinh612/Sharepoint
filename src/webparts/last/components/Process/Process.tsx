@@ -1,206 +1,297 @@
 import * as React from 'react';
-import type { IFormDataProcess } from '../IFormData';
-import { FaEye, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
-import ProcessAddLevel from './ProcessAddLevel';
+import { FaPlus, FaEdit, FaTrash, FaSearch } from 'react-icons/fa';
 import styles from './Process.module.scss';
+import { spfi, SPFx } from '@pnp/sp';
+import "@pnp/sp/webs";
+import "@pnp/sp/lists";
+import "@pnp/sp/items";
+import '@pnp/sp/attachments';
+import '@pnp/sp/site-users/web'; 
+import { WebPartContext } from '@microsoft/sp-webpart-base';
+import ProcessAddLevel from './ProcessAddLevel';
 
-interface IProcessProps {
-  formDataList: IFormDataProcess[];
-  setFormDataList: React.Dispatch<React.SetStateAction<IFormDataProcess[]>>;
-  handleInputChange: (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  handleFileChange: (index: number, event: React.ChangeEvent<HTMLInputElement>) => void;
-  handleApproveAction: (index: number, isApproved: boolean) => void;
-  handleDeleteRow: (index: number) => void;
-  editable: boolean;
-  addRow: () => void;
-  editRow: (index: number) => void;
-  onCancel: () => void;
+interface IProcessData {
+  Id: number;
+  Title: string;
+  ProcessName: string;
+  NumberApporver: string;
+  ProcessType: string;
+  Attachments?: { FileName: string; Url: string }[]; 
 }
 
-const Process: React.FC<IProcessProps> = ({
-  formDataList,
-  setFormDataList,
-  handleInputChange,
-  handleFileChange,
-  handleApproveAction,
-  handleDeleteRow,
-  editable,
-  addRow,
-  editRow,
-  onCancel
-}) => {  
-  const [selectedRows, setSelectedRows] = React.useState<Set<number>>(new Set());
-  const [selectAll, setSelectAll] = React.useState(false);
-  const [isAdding, setIsAdding] = React.useState<boolean>(false);
-  const [newFormData, setNewFormData] = React.useState<IFormDataProcess>({
-    ProcessId: '',
-    ProcessName: '',
-    ProcessNote: '',
-    ProcessLevelNumber: '',
-    ProcessLevel: '',
-    ProcessType: '',
-    Approver: []
-  });
+interface IProcessState {
+  processData: IProcessData[];
+  selectedProcesses: IProcessData[];
+  showAddForm: boolean; // Thêm state để quản lý việc hiển thị ProcessAddLevel
+  selectDataProcess: number[];
+  selectedItem?: IProcessData;
+}
 
-  if (!Array.isArray(formDataList)) {
-    console.error('formDataList is not an array', formDataList);
-    return null; // Hoặc xử lý lỗi khác
+interface IAttachment {
+  FileName: string;
+  ServerRelativeUrl: string;
+}
+
+interface ProcessData {
+  Id: number;
+  Title: string;
+  ProcessName: string;
+  NumberApporver: string;
+  ProcessType: string;
+}
+
+interface IProcessItem {
+  Title: string;
+  NumberOfApproval: string;
+  Approver: { Title: string } | undefined;
+}
+
+interface IProcessState {
+  processDetails: { title: string; numberOfApproval: string; approver: string }[];
+}
+
+export default class Process extends React.Component<{ context: WebPartContext }, IProcessState> {
+  constructor(props: { context: WebPartContext }) {
+    super(props);
+    this.state = {
+      processData: [],
+      selectedProcesses: [],
+      showAddForm: false, 
+      selectDataProcess: [],
+      selectedItem: undefined, 
+      processDetails: [],
+    };
   }
 
-  const showDetail = (index: number): void => {
-    setNewFormData(formDataList[index]); // Set the form data to be edited
-    setIsAdding(true); // Show ProcessAddLevel
-  };
+  public async componentDidMount(): Promise<void> {
+    await this.getProcess();
+    await this.getProcessDetail();
+  }
 
-  const hideDetail = (): void => {
-    setIsAdding(false);
-  };
-
-  const handleSelectAllChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const checked = event.target.checked;
-    setSelectAll(checked);
-    if (checked) {
-      setSelectedRows(new Set(formDataList.map((_, index) => index)));
-    } else {
-      setSelectedRows(new Set());
+  // Hàm getProcess để lấy dữ liệu từ SharePoint
+  public getProcess = async (): Promise<void> => {
+    const listTitle = 'Process';
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+      const items: ProcessData[] = await sp.web.lists.getByTitle(listTitle).items
+        .select('Id', 'Title', 'ProcessName', 'NumberApporver', 'ProcessType')
+        .expand('AttachmentFiles')();
+  
+      const processData: IProcessData[] = await Promise.all(items.map(async (item: ProcessData) => {
+        const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
+  
+        const attachmentLinks = attachments.length > 0
+          ? attachments.map((attachment: IAttachment) => ({
+            FileName: attachment.FileName,
+            Url: attachment.ServerRelativeUrl,
+          }))
+          : [];
+  
+        return {
+          Id: item.Id,
+          Title: item.Title,
+          ProcessName: item.ProcessName,
+          NumberApporver: item.NumberApporver,
+          ProcessType: item.ProcessType,
+          Attachments: attachmentLinks,
+        };
+      }));
+  
+      this.setState({ processData });
+    } catch (error) {
+      console.error("Error retrieving data: ", error);
     }
   };
 
-  const handleCheckboxChange = (index: number): void => {
-    setSelectedRows(prevSelectedRows => {
-      const newSelectedRows = new Set(prevSelectedRows);
-      if (newSelectedRows.has(index)) {
-        newSelectedRows.delete(index);
-      } else {
-        newSelectedRows.add(index);
+  public getProcessDetail = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+      // Gọi API SharePoint để lấy danh sách dữ liệu
+      const items = await sp.web.lists.getByTitle("ProcessDetail").items
+        .select("Title", "NumberOfApproval", "Approver/Title")
+        .expand("Approver")
+        ();
+
+      // Xử lý dữ liệu sau khi lấy
+      const processDetails = items.map((item: IProcessItem) => ({
+        title: item.Title,
+        numberOfApproval: item.NumberOfApproval,
+        approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
+      }));
+  
+      console.log('Process Details:', processDetails);
+  
+      // Bạn có thể setState hoặc xử lý dữ liệu tại đây
+      this.setState({ processDetails });
+  
+    } catch (error) {
+      console.error('Error fetching process details:', error);
+    }
+  };
+  
+
+  // Hàm để hiển thị ProcessAddLevel khi nhấn vào nút Thêm
+  public handleShowAddForm = (): void => {
+    this.setState({ showAddForm: true, selectedItem: undefined });
+  };
+  
+  // Hàm để ẩn ProcessAddLevel khi người dùng hủy thêm mới
+  public handleCancelAddForm = (): void => {
+    this.setState({ showAddForm: false });
+  };
+
+  public handleShowEditForm = (item: IProcessData): void => {
+    this.setState({ showAddForm: true, selectedItem: item });
+  };
+
+  //Chọn từng checkbox
+  public handleCheckboxChange = (id: number): void => {
+    const { selectDataProcess } = this.state;
+
+    if (selectDataProcess.includes(id)) {
+      // Nếu ID đã có trong danh sách chọn, loại bỏ nó
+      this.setState({
+        selectDataProcess: selectDataProcess.filter((selectedId) => selectedId !== id),
+      });
+    } else {
+      // Nếu ID chưa có, thêm nó vào danh sách chọn
+      this.setState({
+        selectDataProcess: [...selectDataProcess, id],
+      });
+    }
+  };
+
+  // Hàm xóa các mục đã chọn
+  public handleDeleteSelected = async (): Promise<void> => {
+    const { selectDataProcess, processData } = this.state;
+    const listTitle = 'Process';
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+      // Xóa từng mục được chọn
+      for (const id of selectDataProcess) {
+        await sp.web.lists.getByTitle(listTitle).items.getById(id).delete();
       }
-      return newSelectedRows;
-    });
+
+      // Cập nhật lại danh sách dữ liệu sau khi xóa
+      const updatedProcessData = processData.filter((item) => !selectDataProcess.includes(item.Id));
+      this.setState({ processData: updatedProcessData, selectDataProcess: [] });
+      alert('Deleted successfully!');
+    } catch (error) {
+      console.error("Error deleting items: ", error);
+      alert('Failed to delete items.');
+    }
   };
 
-  const handleDeleteSelected = (): void => {
-    selectedRows.forEach(index => handleDeleteRow(index));
-    setSelectedRows(new Set());
-    setSelectAll(false);
+  //Chọn all checkbox
+  public handleSelectAllChange = (): void => {
+    const { processData, selectDataProcess } = this.state;
+    if (selectDataProcess.length === processData.length) {
+      this.setState({ selectDataProcess: [] }); // Bỏ chọn tất cả
+    } else {
+      const allIds = processData.map((item) => item.Id);
+      this.setState({ selectDataProcess: allIds }); // Chọn tất cả
+    }
   };
+  
 
-  const handleAddRow = (): void => {
-    setNewFormData({
-      ProcessId: '',
-      ProcessName: '',
-      ProcessNote: '',
-      ProcessLevelNumber: '',
-      ProcessLevel: '',
-      ProcessType: '',
-      Approver: []
-    });
-    setIsAdding(true);
-  };
+  public render(): React.ReactElement {
+    const { processData, showAddForm, selectDataProcess, selectedItem } = this.state;
 
-  const handleSaveNewProcess = (data: IFormDataProcess): void => {
-    setFormDataList(prevList => [...prevList, data]);
-    window.alert('Dữ liệu đã được thêm thành công!');
-    setIsAdding(false);
-  };
-
-  const handleEdit = (index: number): void => {
-    setNewFormData(formDataList[index]); // Set the form data to be edited
-    setIsAdding(true); // Show ProcessAddLevel for editing
-  };
-
-  return (
-    <div className={styles.formContainer}>
-      {isAdding ? (
-        <ProcessAddLevel
-          formData={newFormData}
-          onSave={handleSaveNewProcess}
-          editable={editable}
-          onCancel={hideDetail}
-        />
-      ) : (
-        <div className={styles.tableContainer}>
-          <>
+    return (
+      <div className={styles.formContainer}>
+        {showAddForm ? (
+          <ProcessAddLevel 
+            onCancel={this.handleCancelAddForm}
+            context = {this.props.context}
+            item={selectedItem} 
+          />
+        ) : (
+          <div className={styles.tableContainer}>
             <div className={styles.actionButtons}>
-              <button onClick={handleAddRow} disabled={!editable} className={`${styles.btn} ${styles.btnAdd}`}>
+              <button
+                className={`${styles.btn} ${styles.btnAdd}`}
+                onClick={this.handleShowAddForm}
+              >
                 <FaPlus color="green" /> Thêm
               </button>
-              <button
-                onClick={() => selectedRows.size === 1 && handleEdit(Array.from(selectedRows)[0])}
-                disabled={!editable || selectedRows.size !== 1}
+              <button 
                 className={`${styles.btn} ${styles.btnEdit}`}
-              >
+                disabled={selectDataProcess.length !== 1}
+                onClick={() => {
+                  const item = processData.find(item => selectDataProcess.includes(item.Id));
+                  if (item) {
+                    this.handleShowEditForm(item); // Gọi hàm hiển thị View với dữ liệu để sửa
+                  }
+                }}              
+                >
                 <FaEdit color="orange" /> Sửa
               </button>
-              <button
-                onClick={handleDeleteSelected}
-                disabled={selectedRows.size === 0 || !editable}
-                className={`${styles.btn} ${styles.btnDelete}`}
+              <button 
+              className={`${styles.btn} ${styles.btnDelete}`}
+              onClick={this.handleDeleteSelected} 
+              disabled={selectDataProcess.length === 0}
               >
                 <FaTrash color="red" /> Xóa
+              </button>
+              <button className={`${styles.btn} ${styles.btnDelete}`} onClick={this.getProcess}>
+                <FaSearch color="red" /> Tra cứu
+                
               </button>
             </div>
             <form className={styles.tableContainer}>
               <table className="table">
                 <thead className="thead">
                   <tr className="th">
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAllChange}
-                      />
+                    <th style={{ width: '50px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={this.state.selectDataProcess.length === processData.length && processData.length > 0} 
+                        onChange={this.handleSelectAllChange}
+                        />
                     </th>
-                    <th style={{ width: '150px' }}>Mã qui trình</th>
-                    <th style={{ width: '150px' }}>Tên qui trình</th>
+                    <th style={{ width: '150px' }}>Mã qui trình 46</th>
+                    <th style={{ width: '200px' }}>Tên qui trình</th>
                     <th style={{ width: '150px' }}>Số cấp duyệt</th>
                     <th style={{ width: '150px' }}>Loại qui trình</th>
                     <th style={{ width: '100px' }}>Chi tiết</th>
                   </tr>
-                </thead>
+                </thead> 
                 <tbody>
-                  {formDataList.map((formData, index) => (
-                    <tr key={index}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.has(index)}
-                          onChange={() => handleCheckboxChange(index)}
-                          disabled={!editable}
-                        />
-                      </td>
-                      <td><input type="text" name="ProcessName" value={formData.ProcessName} readOnly /></td>
-                      <td><input type="text" name="ProcessNote" value={formData.ProcessNote} readOnly /></td>
-                      <td><input type="text" name="ProcessLevelNumber" value={formData.ProcessLevelNumber} readOnly /></td>
-                      <td>
-                        <select
-                          name="ProcessType"
-                          value={formData.ProcessType}
-                          onChange={handleInputChange(index)}
-                          disabled 
-                        >
-                          <option value="Nội bộ">Nội bộ</option>
-                          <option value="Khu vực">Khu vực</option>
-                          <option value="Tập đoàn">Tập đoàn</option>
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => showDetail(index)}
-                        >
-                          <FaEye color="blue" />
-                        </button>
-                      </td>
+                  {processData.length > 0 ? (
+                    processData.map((item, index) => (
+                      <tr key={index}>
+                        <td>
+                          <input 
+                            type="checkbox" 
+                            checked={selectDataProcess.includes(item.Id)} 
+                             onChange={() => this.handleCheckboxChange(item.Id)} 
+                          />
+                        </td>
+                        <td>{item.Title}</td>
+                        <td>{item.ProcessName}</td>
+                        <td>{item.NumberApporver}</td>
+                        <td>{item.ProcessType}</td>
+                        <td>
+                          <button type="button">
+                            <FaEdit color="blue" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center' }}>No data available</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </form>
-          </>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default Process;
+          </div>
+        )}
+      </div>
+    );
+  }
+}

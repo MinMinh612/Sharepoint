@@ -3,7 +3,7 @@ import type { IFormData } from '../../../suggest/components/ISuggestProps';
 import type { IFormDataProcess } from '../../../last/components/IFormData';
 import { FaEye, FaCheck, FaTimes, FaFilePdf, FaFileWord, FaFileAlt } from 'react-icons/fa';
 import styles from './Approval.module.scss';
-import SuggestionAddView from '../../../suggest/components/Views/SuggestionAddView';
+// import SuggestionAddView from '../../../suggest/components/Views/SuggestionAddView';
 
 interface IApprovalProps {
   formDataList: IFormData[];
@@ -112,11 +112,12 @@ const Approval: React.FC<IApprovalProps> = ({
 
   if (isViewing && viewingIndex !== null) {
     return (
-      <SuggestionAddView
-        formDataList={[formDataList[viewingIndex]]}
-        formDataListProcess={formDataListProcess}
-        onClose={handleClose}
-      />
+      // <SuggestionAddView
+      //   formDataList={[formDataList[viewingIndex]]}
+      //   formDataListProcess={formDataListProcess}
+      //   onClose={handleClose}
+      // />
+      <div>haha</div>
     );
   }
 

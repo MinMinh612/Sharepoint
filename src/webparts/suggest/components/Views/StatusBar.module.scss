@@ -1,0 +1,73 @@
+:root {
+    --default-color: rgb(182, 171, 171); 
+    --completed-color: #bda436ec; 
+    --inProgress-color: #bda436ec; 
+    --connector-opacity: 0.3; 
+  }
+  
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    position: relative;
+    padding: 20px 0;
+  }
+  
+  .statusStep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  
+  .statusCircle {
+    width: 30px; /* Reduced size */
+    height: 30px; /* Reduced size */
+    border-radius: 50%;
+    background-color: var(--default-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    transition: background-color 0.3s;
+  }
+  
+  .connector {
+    flex-grow: 1;
+    height: 4px;
+    background-color: var(--default-color);
+    opacity: var(--connector-opacity);
+    margin: 30px -15px 0 -50px; 
+    align-self: center;
+    transition: opacity 0.3s;
+  }
+  
+  .statusLabel {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #333;
+    position: relative;
+    top: -8px;
+    z-index: 2;
+  }
+  
+  /* Styles default  */
+  .statusStep.default .statusCircle {
+    background-color: var(--default-color);
+  }
+  
+  /* Styles completed  */
+  .statusStep.completed .statusCircle {
+    background-color: var(--completed-color);
+  }
+  
+  /* Styles inProgress */
+  .statusStep.inProgress .statusCircle {
+    background-color: var(--inProgress-color);
+  }
+  
+  

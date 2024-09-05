@@ -78,4 +78,6 @@ Lệnh build giao diện: yo @microsoft/sharepoint
 
 Server anh Phú: https://vietasoft.sharepoint.com/sites/Project_eOffice/_layouts/15/workbench.aspx
 
+set NODE_OPTIONS="--max-old-space-size=4096"
+
 

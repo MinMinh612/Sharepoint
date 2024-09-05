@@ -1,3 +1,4 @@
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 export interface ILastProps {
   description: string;
   descriptionLv1: string;
@@ -20,4 +21,6 @@ export interface ILastProps {
   updateTotal: (value: boolean) => void;
   updateStatus: (value: string) => void;
   updateApprove: (value: boolean) => void; 
+
+  context: WebPartContext;
 }
