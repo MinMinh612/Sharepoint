@@ -228,23 +228,23 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     
       try {
         const items = await sp.web.lists.getByTitle(listTitle).items
-          .select('ProcessCode', 'ProcessName', 'Quantity_Of_Approve', 'ProcessType') // Chọn các trường cần thiết
+          .select('Title', 'ProcessName', 'NumberApprover', 'ProcessType') 
           ();
     
         const processes = items.map(item => ({
-          ProcessCode: item.ProcessCode,
-          ProcessName: item.ProcessName,
-          Quantity_Of_Approve: item.Quantity_Of_Approve,
-          ProcessType: item.ProcessType,
+          ProcessCode: item.Title,  // Mapping 'Title' to 'ProcessCode'
+          ProcessName: item.ProcessName,  // Mapping 'ProcessName'
+          Quantity_Of_Approve: item.NumberApprover,  // Mapping 'NumberApprover' to 'Quantity_Of_Approve'
+          ProcessType: item.ProcessType,  // Mapping 'ProcessType'
         }));
     
         this.setState({ processes });
       } catch (error) {
-        // console.error('Error fetching Emergency data:', error);
-        // alert('Failed to fetch Emergency data: ' + error.message);
+        console.error('Error fetching Process data:', error);
+        alert('Failed to fetch Process data: ' + error.message);
       }
     }
-  
+          
   
 
   // Auto save của các feild (k có file)
@@ -353,8 +353,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
           overflow: 'hidden', 
           textOverflow: 'ellipsis', 
           whiteSpace: 'nowrap',
-          fontFamily: 'Times New Roman, serif',  // Thêm font chữ Times New Roman
-          fontSize: '10px'  // Thêm kích thước chữ 10px
+          fontFamily: 'Times New Roman, serif',  
+          fontSize: '10px' 
         }}>
           {fileName.length > 10 ? `${fileName.slice(0, 20)}...` : fileName}
         </span>        

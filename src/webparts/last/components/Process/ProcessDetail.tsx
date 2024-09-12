@@ -7,8 +7,7 @@ import '@pnp/sp/attachments';
 import '@pnp/sp/site-users/web'; 
 import { spfi, SPFx } from '@pnp/sp';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { ISiteUserInfo  } from '@pnp/sp/site-users'; 
-
+import { ISiteUserInfo } from '@pnp/sp/site-users';
 
 interface IProcessDetailProps {
   formDataList: IProcessData[];
@@ -31,7 +30,7 @@ interface IProcessData {
 
 interface IProcessDetailState {
   processLevels: number[];
-  users: { id: number; title: string; Email: string; }[];
+  users: { id: number; title: string }[];
   approvers: { [level: number]: string };
 }
 
@@ -53,27 +52,25 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
   public getUsers = async (): Promise<void> => {
     const sp = spfi().using(SPFx(this.props.context));
     try {
-      // Lấy danh sách người dùng từ SharePoint
+      // Lấy danh sách người dùng từ SharePoint và chỉ lấy ID và Tên
       const groupUsers: ISiteUserInfo[] = await sp.web.siteUsers.filter("IsSiteAdmin eq false")();
   
       const userList = groupUsers.map((user: ISiteUserInfo) => ({
         id: user.Id,
         title: user.Title,
-        Email: user.Email || '',  // Lấy email của người dùng, nếu không có thì để rỗng
       }));
   
       this.setState({ users: userList });
-      console.log('Danh sách user:', userList)
+      console.log('Danh sách user:', userList);
     } catch (error) {
       console.error('Error fetching users from site:', error);
     }
   };
 
-  
   public addProcessDetail = async (): Promise<void> => {
-    const { formData } = this.props;  // Lấy dữ liệu từ props
+    const { formData } = this.props;
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
       const processLevelNumber = parseInt(formData.ProcessLevelNumber, 10); // Lấy số cấp duyệt
       if (!isNaN(processLevelNumber) && processLevelNumber > 0) {
@@ -102,7 +99,7 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
       console.error('Error adding item to list:', error);
     }
   };
-        
+
   componentDidUpdate(prevProps: IProcessDetailProps): void {
     if (prevProps.formData.ProcessLevelNumber !== this.props.formData.ProcessLevelNumber) {
       this.updateProcessLevels();
@@ -121,73 +118,47 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
   };
 
   // Hàm cập nhật ApproverId vào formData khi người dùng chọn từ dropdown
-  _handleApproverChange = async (e: React.ChangeEvent<HTMLSelectElement>, level: number): Promise<void> => {
-    const selectedValue = e.target.value;  // Lấy giá trị được chọn
-  
-    // Kiểm tra nếu giá trị có định dạng email
-    if (selectedValue.includes('@')) {
-      console.log(`Selected Approver Email for level ${level}:`, selectedValue);
-  
-      const sp = spfi().using(SPFx(this.props.context));
-  
-      try {
-        // Gọi API SharePoint để lấy thông tin người dùng dựa trên email
-        const user = await sp.web.siteUsers.getByEmail(selectedValue)();
-  
-        if (user && user.Id) {
-          console.log(`Selected Approver ID for level ${level}:`, user.Id);
-          // Lưu ID người dùng vào mảng approvers theo cấp duyệt
-          this.setState((prevState) => ({
-            approvers: { ...prevState.approvers, [level]: user.Id.toString() }
-          }));
-        } else {
-          console.error('User not found or invalid email');
-        }
-      } catch (error) {
-        console.error('Error fetching user by email:', error);
-      }
-    } else {
-      // Nếu không phải email, xử lý trường hợp chọn ID
-      console.log(`Selected Approver ID for level ${level}:`, selectedValue);
-  
-      // Lưu thẳng ID vào mảng approvers theo cấp duyệt
-      this.setState((prevState) => ({
-        approvers: { ...prevState.approvers, [level]: selectedValue }
-      }));
-    }
-  };
-                            
+  _handleApproverChange = (e: React.ChangeEvent<HTMLSelectElement>, level: number): void => {
+    const selectedValue = e.target.value;  // Lấy ID người được chọn
 
+    console.log(`Selected Approver ID for level ${level}:`, selectedValue);
+  
+    // Lưu ID vào mảng approvers theo cấp duyệt
+    this.setState((prevState) => ({
+      approvers: { ...prevState.approvers, [level]: selectedValue }
+    }));
+  };
+  
   renderProcessItems = (): JSX.Element[] => {
     const { formData, editable } = this.props;
     const { users, approvers } = this.state;
-
+  
     return this.state.processLevels.map((level, i) => (
       <tr key={i}>
         <td>{formData.Title}</td>
         <td>{level}</td>
         <td>
-      {editable ? (
-        <select 
-          name={`Approver${i}`} 
-          value={approvers[level] || ''}  // Hiển thị giá trị người duyệt cho cấp duyệt hiện tại
-          onChange={(e) => this._handleApproverChange(e, level)}
-        >
-          <option value="">Chọn người duyệt</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.Email || user.id.toString()}>
-              {user.title} {user.Email ? `(${user.Email})` : '(ID: ' + user.id + ')'}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <span>{approvers[level]}</span>  // Hiển thị ID người duyệt cho cấp hiện tại
-      )}
-      </td>     
-    </tr>
+          {editable ? (
+            <select 
+              name={`Approver${i}`} 
+              value={approvers[level] || ''}  // Hiển thị giá trị người duyệt cho cấp duyệt hiện tại
+              onChange={(e) => this._handleApproverChange(e, level)}
+            >
+              <option value="">Chọn người duyệt</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id.toString()}>
+                  {user.title}  {/* Chỉ hiển thị tên người dùng */}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{approvers[level]}</span>  // Hiển thị ID người duyệt cho cấp hiện tại
+          )}
+        </td>     
+      </tr>
     ));
   };
-
+  
   public render(): React.ReactElement {    
     return (
       <div>

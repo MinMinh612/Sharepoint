@@ -146,6 +146,21 @@ public getProcessDetail = async (): Promise<void> => {
       default:
         break;
     }
+
+    const removeDiacriticsAndSpaces = (str: string): string => {
+      return str
+        .normalize("NFD") // Chuyển sang dạng Unicode tổ hợp
+        .replace(/[\u0300-\u036f]/g, "") // Loại bỏ dấu tiếng Việt
+        .replace(/\s+/g, ""); // Loại bỏ khoảng trắng
+    };
+  
+    const cleanValue = name === "Title" ? removeDiacriticsAndSpaces(value) : value;
+
+    switch (name) {
+      case "Title": // Mã qui trình
+        this.setState({ Title: cleanValue });
+        break;
+    }
   };
 
   public async componentDidMount(): Promise<void> {
