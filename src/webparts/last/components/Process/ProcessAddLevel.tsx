@@ -129,39 +129,38 @@ public getProcessDetail = async (): Promise<void> => {
   // Xử lý sự kiện khi người dùng thay đổi giá trị input
   private handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = event.target;
-
-    switch (name) {
-      case "Title": // Mã qui trình
-        this.setState({ Title: value });
-        break;
-      case "ProcessName": // Tên qui trình
-        this.setState({ ProcessName: value });
-        break;
-      case "ProcessType":
-        this.setState({ ProcessType: value });
-        break;
-      case "NumberApporver":
-        this.setState({ NumberApporver: value });
-        break;
-      default:
-        break;
-    }
-
+  
+    // Remove diacritics and spaces for "Title" field
     const removeDiacriticsAndSpaces = (str: string): string => {
       return str
-        .normalize("NFD") // Chuyển sang dạng Unicode tổ hợp
-        .replace(/[\u0300-\u036f]/g, "") // Loại bỏ dấu tiếng Việt
-        .replace(/\s+/g, ""); // Loại bỏ khoảng trắng
+        .normalize("NFD") // Convert to Unicode Normalization Form
+        .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+        .replace(/\s+/g, ""); // Remove spaces
     };
   
+    // Clean the value if the field is "Title"
     const cleanValue = name === "Title" ? removeDiacriticsAndSpaces(value) : value;
-
-    switch (name) {
-      case "Title": // Mã qui trình
-        this.setState({ Title: cleanValue });
-        break;
-    }
+  
+    // Cập nhật giá trị state với thuộc tính tương ứng
+    this.setState((prevState) => ({
+      ...prevState,
+      [name]: cleanValue
+    }), this.updateProcessDetail); // Gọi updateProcessDetail sau khi cập nhật state
   };
+  
+  // Phương thức này sẽ được gọi khi dữ liệu của ProcessAddLevel thay đổi
+  public updateProcessDetail = (): void => {
+    if (this.processDetailRef.current) {
+      const { Title, ProcessName, NumberApporver, Approver } = this.state;
+      this.processDetailRef.current.updateDetails({
+        Title,
+        ProcessName,
+        NumberApporver,
+        Approver,
+      });
+    }
+  }
+
 
   public async componentDidMount(): Promise<void> {
     await this.getProcessDetail();
@@ -256,7 +255,7 @@ public getProcessDetail = async (): Promise<void> => {
             Approver: this.state.Approver,
           }} // Truyền NumberApporver và ProcessName
           editable={true} // Cho phép chỉnh sửa
-          context = {this.props.context}
+          context={this.props.context}
         />
       </div>
     );

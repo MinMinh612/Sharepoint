@@ -32,6 +32,10 @@ interface IProcessDetailState {
   processLevels: number[];
   users: { id: number; title: string }[];
   approvers: { [level: number]: string };
+  Title: string;
+  ProcessName: string;
+  NumberApporver: string;
+  Approver: string;
 }
 
 export default class ProcessDetail extends React.Component<IProcessDetailProps, IProcessDetailState> {
@@ -41,13 +45,36 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
       processLevels: [],
       users: [],
       approvers: {},
+      Title: '',
+      ProcessName: '',
+      NumberApporver: '',
+      Approver: '',
+    
     };
   }
 
   public async componentDidMount(): Promise<void> {
     await this.updateProcessLevels();
     await this.getUsers();
+
+    if (this.props.formDataList) {
+      const newApprovers = this.props.formDataList.reduce((acc: { [key: string]: string }, item) => {
+        acc[item.ProcessLevelNumber] = item.Approver || '';  // Giả sử rằng có trường Approver trong formDataList
+        return acc;
+      }, {});
+      this.setState({ approvers: newApprovers });
+    }  
   }
+
+  public updateDetails = (newData: { Title: string, ProcessName: string, NumberApporver: string, Approver: string }): void => {
+    this.setState({
+      Title: newData.Title,
+      ProcessName: newData.ProcessName,
+      NumberApporver: newData.NumberApporver,
+      Approver: newData.Approver
+    });
+  };
+  
 
   public getUsers = async (): Promise<void> => {
     const sp = spfi().using(SPFx(this.props.context));
@@ -121,8 +148,6 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
   _handleApproverChange = (e: React.ChangeEvent<HTMLSelectElement>, level: number): void => {
     const selectedValue = e.target.value;  // Lấy ID người được chọn
 
-    console.log(`Selected Approver ID for level ${level}:`, selectedValue);
-  
     // Lưu ID vào mảng approvers theo cấp duyệt
     this.setState((prevState) => ({
       approvers: { ...prevState.approvers, [level]: selectedValue }
@@ -132,6 +157,8 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
   renderProcessItems = (): JSX.Element[] => {
     const { formData, editable } = this.props;
     const { users, approvers } = this.state;
+
+    console.log('User lấy được trong Detail:',this.state.approvers);
   
     return this.state.processLevels.map((level, i) => (
       <tr key={i}>

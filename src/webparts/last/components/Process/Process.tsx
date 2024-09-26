@@ -108,29 +108,24 @@ export default class Process extends React.Component<{ context: WebPartContext }
     const sp = spfi().using(SPFx(this.props.context));
   
     try {
-      // Gọi API SharePoint để lấy danh sách dữ liệu
       const items = await sp.web.lists.getByTitle("ProcessDetail").items
         .select("Title", "NumberOfApproval", "Approver/Title")
-        .expand("Approver")
-        ();
-
-      // Xử lý dữ liệu sau khi lấy
+        .expand("Approver")();
+  
       const processDetails = items.map((item: IProcessItem) => ({
         title: item.Title,
         numberOfApproval: item.NumberOfApproval,
-        approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
+        approver: item.Approver ? item.Approver.Title : "No Approver",
       }));
   
-      console.log('Process Details:', processDetails);
-  
-      // Bạn có thể setState hoặc xử lý dữ liệu tại đây
       this.setState({ processDetails });
+      console.log('Process Details:', processDetails);
   
     } catch (error) {
       console.error('Error fetching process details:', error);
     }
   };
-  
+      
 
   // Hàm để hiển thị ProcessAddLevel khi nhấn vào nút Thêm
   public handleShowAddForm = (): void => {
@@ -147,22 +142,52 @@ export default class Process extends React.Component<{ context: WebPartContext }
   };
 
   //Chọn từng checkbox
-  public handleCheckboxChange = (id: number): void => {
-    const { selectDataProcess } = this.state;
-
+  public handleCheckboxChange = async (id: number): Promise<void> => {
+    const { selectDataProcess, processData } = this.state;
+  
     if (selectDataProcess.includes(id)) {
       // Nếu ID đã có trong danh sách chọn, loại bỏ nó
       this.setState({
         selectDataProcess: selectDataProcess.filter((selectedId) => selectedId !== id),
+        processDetails: [] // Bỏ chọn thì reset dữ liệu chi tiết
       });
     } else {
       // Nếu ID chưa có, thêm nó vào danh sách chọn
       this.setState({
-        selectDataProcess: [...selectDataProcess, id],
+        selectDataProcess: [...selectDataProcess, id]
       });
+  
+      // Lấy dữ liệu từ Process khi checkbox được tích
+      const selectedItem = processData.find((item: IProcessData) => item.Id === id);
+  
+      if (selectedItem) {
+        // Lấy dữ liệu chi tiết từ ProcessDetail
+        const sp = spfi().using(SPFx(this.props.context));
+        try {
+          const details = await sp.web.lists.getByTitle("ProcessDetail").items
+          .filter(`Title eq '${selectedItem.Title}'`) // Sử dụng Title thay vì ProcessId
+          .select("Title", "NumberOfApproval", "Approver/Title")
+          .expand("Approver")();
+          
+          // Cập nhật chi tiết của Process vào state
+          this.setState({
+            processDetails: details.map((item: IProcessItem) => ({
+              title: item.Title,
+              numberOfApproval: item.NumberOfApproval,
+              approver: item.Approver ? item.Approver.Title : "No Approver",
+            })),
+          });
+  
+          // Console log để theo dõi kết quả
+          console.log('Checkbox changed for ID:', id, 'Selected item:', selectedItem, 'Details:', details);
+  
+        } catch (error) {
+          console.error("Error retrieving ProcessDetail:", error);
+        }
+      }
     }
   };
-
+    
   // Hàm xóa các mục đã chọn
   public handleDeleteSelected = async (): Promise<void> => {
     const { selectDataProcess, processData } = this.state;
