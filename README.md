@@ -78,6 +78,11 @@ Lệnh build giao diện: yo @microsoft/sharepoint
 
 Server anh Phú: https://vietasoft.sharepoint.com/sites/Project_eOffice/_layouts/15/workbench.aspx
 
+https://hcmunreeduvn.sharepoint.com/_forms/default.aspx
+
 set NODE_OPTIONS="--max-old-space-size=4096"
+
+gulp serve --max_old_space_size=4096
+
 
 

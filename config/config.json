@@ -35,7 +35,10 @@
       ]
     }
   },
-  "externals": {},
+  "externals": {
+    "react": "React",
+    "react-dom": "ReactDOM"
+  },
   "localizedResources": {
     "LastWebPartStrings": "lib/webparts/last/loc/{locale}.js",
     "SuggestWebPartStrings": "lib/webparts/suggest/loc/{locale}.js",

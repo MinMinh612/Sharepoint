@@ -8,6 +8,7 @@ import '@pnp/sp/site-users/web';
 import { spfi, SPFx } from '@pnp/sp';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ISiteUserInfo } from '@pnp/sp/site-users';
+import {IProcessItem, IProcessData } from './IProcessData';
 
 interface IProcessDetailProps {
   formDataList: IProcessData[];
@@ -21,13 +22,6 @@ interface IProcessDetailProps {
   context: WebPartContext;
 }
 
-interface IProcessData {
-  ProcessLevelNumber: string;
-  ProcessName: string;
-  Approver?: string;
-  Title: string;
-}
-
 interface IProcessDetailState {
   processLevels: number[];
   users: { id: number; title: string }[];
@@ -36,6 +30,7 @@ interface IProcessDetailState {
   ProcessName: string;
   NumberApporver: string;
   Approver: string;
+  processDetails: { title: string; numberOfApproval: string; approver: string }[];
 }
 
 export default class ProcessDetail extends React.Component<IProcessDetailProps, IProcessDetailState> {
@@ -49,21 +44,14 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
       ProcessName: '',
       NumberApporver: '',
       Approver: '',
-    
+      processDetails: [],
     };
   }
 
   public async componentDidMount(): Promise<void> {
     await this.updateProcessLevels();
     await this.getUsers();
-
-    if (this.props.formDataList) {
-      const newApprovers = this.props.formDataList.reduce((acc: { [key: string]: string }, item) => {
-        acc[item.ProcessLevelNumber] = item.Approver || '';  // Giả sử rằng có trường Approver trong formDataList
-        return acc;
-      }, {});
-      this.setState({ approvers: newApprovers });
-    }  
+    await this.getProcessDetail();
   }
 
   public updateDetails = (newData: { Title: string, ProcessName: string, NumberApporver: string, Approver: string }): void => {
@@ -74,23 +62,53 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
       Approver: newData.Approver
     });
   };
-  
 
   public getUsers = async (): Promise<void> => {
     const sp = spfi().using(SPFx(this.props.context));
     try {
-      // Lấy danh sách người dùng từ SharePoint và chỉ lấy ID và Tên
       const groupUsers: ISiteUserInfo[] = await sp.web.siteUsers.filter("IsSiteAdmin eq false")();
-  
       const userList = groupUsers.map((user: ISiteUserInfo) => ({
         id: user.Id,
         title: user.Title,
       }));
-  
       this.setState({ users: userList });
-      console.log('Danh sách user:', userList);
     } catch (error) {
       console.error('Error fetching users from site:', error);
+    }
+  };
+
+  public getProcessDetail = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+      const items = await sp.web.lists.getByTitle("ProcessDetail").items
+        .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
+        .expand("Approver")();
+  
+      const filteredItems = items.filter((item: IProcessItem) => item.Title === this.props.formData.Title);
+  
+      if (filteredItems.length > 0) {
+        const processDetails = filteredItems.map((item: IProcessItem) => ({
+          title: item.Title,
+          numberOfApproval: item.NumberOfApproval,
+          approver: item.Approver ? item.Approver.Id : ""
+        }));
+  
+        const newApprovers = processDetails.reduce((acc: { [key: number]: string }, item) => {
+          const level = parseInt(item.numberOfApproval, 10);
+          if (!isNaN(level)) {
+            acc[level] = item.approver || '';
+          }
+          return acc;
+        }, {});
+  
+        this.setState({ processDetails, approvers: newApprovers });
+      } else {
+        // Nếu không có dữ liệu khớp, để ô nhập trống
+        this.setState({ processDetails: [], approvers: {} });
+      }
+    } catch (error) {
+      console.error('Error fetching process details:', error);
     }
   };
 
@@ -99,37 +117,54 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
     const sp = spfi().using(SPFx(this.props.context));
 
     try {
-      const processLevelNumber = parseInt(formData.ProcessLevelNumber, 10); // Lấy số cấp duyệt
-      if (!isNaN(processLevelNumber) && processLevelNumber > 0) {
-  
-        // Lặp qua từng cấp duyệt để thêm nhiều hàng tương ứng
-        for (let level = 1; level <= processLevelNumber; level++) {
-          // Lấy người duyệt từ mảng approvers theo cấp duyệt
-          const approverId = this.state.approvers[level]; 
-  
-          console.log(`Approver ID being added for level ${level}:`, approverId);
-  
-          // Thêm dữ liệu vào danh sách với từng cấp duyệt
-          const addItemResult = await sp.web.lists.getByTitle("ProcessDetail").items.add({
-            Title: `${formData.Title}`,  // Cột Title
-            NumberOfApproval: `${level}`,  // Cột NumberOfApproval
-            ApproverId: approverId ? parseInt(approverId, 10) : null  // Cột Approver, sử dụng ID của người duyệt
-          });
-  
-          console.log(`Item for level ${level} added successfully`, addItemResult);
+        const processLevelNumber = parseInt(formData.ProcessLevelNumber, 10); // Lấy số cấp duyệt
+        if (!isNaN(processLevelNumber) && processLevelNumber > 0) {
+            
+            // Kiểm tra xem có mục nào với Title đã tồn tại không
+            const existingItems = await sp.web.lists.getByTitle("ProcessDetail").items
+                .filter(`Title eq '${formData.Title}'`)();
+
+            for (let level = 1; level <= processLevelNumber; level++) {
+                const approverId = this.state.approvers[level];
+
+                // Kiểm tra xem có mục nào với Title và NumberOfApproval đã tồn tại không
+                const existingItemForLevel = existingItems.find(item => 
+                    item.Title === formData.Title && 
+                    item.NumberOfApproval === `${level}`
+                );
+
+                if (existingItemForLevel) {
+                    // Nếu đã có mục này, cập nhật người duyệt
+                    await sp.web.lists.getByTitle("ProcessDetail").items.getById(existingItemForLevel.Id).update({
+                        ApproverId: approverId ? parseInt(approverId, 10) : null
+                    });
+                    console.log(`Updated item for level ${level}`);
+                } else {
+                    // Nếu chưa có mục với NumberOfApproval tương ứng, thêm mới
+                    await sp.web.lists.getByTitle("ProcessDetail").items.add({
+                        Title: `${formData.Title}`,
+                        NumberOfApproval: `${level}`,
+                        ApproverId: approverId ? parseInt(approverId, 10) : null
+                    });
+                    console.log(`Added new item for level ${level}`);
+                }
+            }
+        } else {
+            console.error('Invalid ProcessLevelNumber');
         }
-  
-      } else {
-        console.error('Invalid ProcessLevelNumber');
-      }
     } catch (error) {
-      console.error('Error adding item to list:', error);
+        console.error('Error adding or updating item:', error);
     }
   };
 
-  componentDidUpdate(prevProps: IProcessDetailProps): void {
+
+  async componentDidUpdate(prevProps: IProcessDetailProps): Promise<void> {
     if (prevProps.formData.ProcessLevelNumber !== this.props.formData.ProcessLevelNumber) {
       this.updateProcessLevels();
+    }
+
+    if (prevProps.formData.Title !== this.props.formData.Title) {
+      await this.getProcessDetail();
     }
   }
 
@@ -144,22 +179,17 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
     }
   };
 
-  // Hàm cập nhật ApproverId vào formData khi người dùng chọn từ dropdown
   _handleApproverChange = (e: React.ChangeEvent<HTMLSelectElement>, level: number): void => {
-    const selectedValue = e.target.value;  // Lấy ID người được chọn
-
-    // Lưu ID vào mảng approvers theo cấp duyệt
+    const selectedValue = e.target.value;
     this.setState((prevState) => ({
       approvers: { ...prevState.approvers, [level]: selectedValue }
     }));
   };
-  
+
   renderProcessItems = (): JSX.Element[] => {
     const { formData, editable } = this.props;
     const { users, approvers } = this.state;
-
-    console.log('User lấy được trong Detail:',this.state.approvers);
-  
+    
     return this.state.processLevels.map((level, i) => (
       <tr key={i}>
         <td>{formData.Title}</td>
@@ -168,24 +198,26 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
           {editable ? (
             <select 
               name={`Approver${i}`} 
-              value={approvers[level] || ''}  // Hiển thị giá trị người duyệt cho cấp duyệt hiện tại
+              value={approvers[level] || ''}  
               onChange={(e) => this._handleApproverChange(e, level)}
             >
               <option value="">Chọn người duyệt</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id.toString()}>
-                  {user.title}  {/* Chỉ hiển thị tên người dùng */}
+                  {user.title}
                 </option>
               ))}
             </select>
           ) : (
-            <span>{approvers[level]}</span>  // Hiển thị ID người duyệt cho cấp hiện tại
+            <span>
+              {users.find((user) => user.id === parseInt(approvers[level], 10))?.title || 'Không có người duyệt'}
+            </span>
           )}
-        </td>     
+        </td>
       </tr>
     ));
   };
-  
+
   public render(): React.ReactElement {    
     return (
       <div>

@@ -9,15 +9,7 @@ import '@pnp/sp/attachments';
 import '@pnp/sp/site-users/web'; 
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import ProcessAddLevel from './ProcessAddLevel';
-
-interface IProcessData {
-  Id: number;
-  Title: string;
-  ProcessName: string;
-  NumberApporver: string;
-  ProcessType: string;
-  Attachments?: { FileName: string; Url: string }[]; 
-}
+import {IProcessData, IAttachment, ProcessData, IProcessItem} from './IProcessData'
 
 interface IProcessState {
   processData: IProcessData[];
@@ -25,31 +17,8 @@ interface IProcessState {
   showAddForm: boolean; // Thêm state để quản lý việc hiển thị ProcessAddLevel
   selectDataProcess: number[];
   selectedItem?: IProcessData;
-}
-
-interface IAttachment {
-  FileName: string;
-  ServerRelativeUrl: string;
-}
-
-interface ProcessData {
-  Id: number;
-  Title: string;
-  ProcessName: string;
-  NumberApporver: string;
-  ProcessType: string;
-}
-
-interface IProcessItem {
-  Title: string;
-  NumberOfApproval: string;
-  Approver: { Title: string } | undefined;
-}
-
-interface IProcessState {
   processDetails: { title: string; numberOfApproval: string; approver: string }[];
 }
-
 export default class Process extends React.Component<{ context: WebPartContext }, IProcessState> {
   constructor(props: { context: WebPartContext }) {
     super(props);
@@ -191,21 +160,38 @@ export default class Process extends React.Component<{ context: WebPartContext }
   // Hàm xóa các mục đã chọn
   public handleDeleteSelected = async (): Promise<void> => {
     const { selectDataProcess, processData } = this.state;
-    const listTitle = 'Process';
+    const listTitleProcess = 'Process';
+    const listTitleProcessDetail = 'ProcessDetail'; // Tên của danh sách ProcessDetail
     const sp = spfi().using(SPFx(this.props.context));
 
     try {
-      // Xóa từng mục được chọn
+      // Xóa từng mục được chọn từ danh sách Process
       for (const id of selectDataProcess) {
-        await sp.web.lists.getByTitle(listTitle).items.getById(id).delete();
+        // Xóa mục trong danh sách Process
+        await sp.web.lists.getByTitle(listTitleProcess).items.getById(id).delete();
+
+        // Lấy thông tin của mục trong Process đã được chọn để tìm các mục tương ứng trong ProcessDetail
+        const selectedItem = processData.find((item) => item.Id === id);
+        
+        if (selectedItem) {
+          // Lọc các mục trong ProcessDetail với tiêu chí Title tương ứng với mục trong Process
+          const processDetailItems = await sp.web.lists.getByTitle(listTitleProcessDetail).items
+            .filter(`Title eq '${selectedItem.Title}'`)()
+          
+          // Xóa từng mục trong ProcessDetail liên quan
+          for (const detailItem of processDetailItems) {
+            await sp.web.lists.getByTitle(listTitleProcessDetail).items.getById(detailItem.Id).delete();
+          }
+        }
       }
 
-      // Cập nhật lại danh sách dữ liệu sau khi xóa
+      // Cập nhật lại danh sách dữ liệu sau khi xóa trong Process
       const updatedProcessData = processData.filter((item) => !selectDataProcess.includes(item.Id));
       this.setState({ processData: updatedProcessData, selectDataProcess: [] });
+
       alert('Deleted successfully!');
     } catch (error) {
-      console.error("Error deleting items: ", error);
+      console.error("Error deleting items from Process and ProcessDetail: ", error);
       alert('Failed to delete items.');
     }
   };
@@ -277,7 +263,7 @@ export default class Process extends React.Component<{ context: WebPartContext }
                         onChange={this.handleSelectAllChange}
                         />
                     </th>
-                    <th style={{ width: '150px' }}>Mã qui trình</th>
+                    <th style={{ width: '150px' }}>Mã qui trình 33</th>
                     <th style={{ width: '200px' }}>Tên qui trình</th>
                     <th style={{ width: '150px' }}>Số cấp duyệt</th>
                     <th style={{ width: '150px' }}>Loại qui trình</th>

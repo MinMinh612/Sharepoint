@@ -2,23 +2,9 @@ import React from 'react';
 import { FaPlus, FaTimes } from 'react-icons/fa';
 import styles from './ProcessAddLevel.module.scss';
 import { spfi, SPFx } from '@pnp/sp';
-import { WebPartContext } from '@microsoft/sp-webpart-base';
+// import { WebPartContext } from '@microsoft/sp-webpart-base';
 import ProcessDetail from './ProcessDetail';
-
-interface IProcessAddLevelProps {
-  onCancel: () => void;
-  context: WebPartContext; // Truyền context để kết nối với SharePoint
-  item?: IProcessData;
-}
-
-interface IProcessData {
-  Id: number;
-  Title: string;
-  ProcessName: string;
-  NumberApporver: string;
-  ProcessType: string;
-}
-
+import {IProcessAddLevelProps, IProcessItem} from './IProcessData'
 
 interface IProcessAddLevelState {
   Title: string; 
@@ -30,13 +16,6 @@ interface IProcessAddLevelState {
   Approver: string;
   processDetails: { title: string; numberOfApproval: string; approver: string }[];
 }
-
-interface IProcessItem {
-  Title: string;
-  NumberOfApproval: string;
-  Approver: { Title: string } | undefined;
-}
-
 
 export default class ProcessAddLevel extends React.Component<IProcessAddLevelProps, IProcessAddLevelState> {
   processDetailRef: React.RefObject<ProcessDetail>; //Gọi hàm của file ProcessDetail
@@ -115,7 +94,7 @@ public getProcessDetail = async (): Promise<void> => {
       approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
     }));
 
-    console.log('Chi tiết Process:', processDetails);
+    // console.log('Chi tiết Process:', processDetails);
 
     // Bạn có thể setState hoặc xử lý dữ liệu tại đây
     this.setState({ processDetails });
