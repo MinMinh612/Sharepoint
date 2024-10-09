@@ -27,7 +27,7 @@ interface IProcessDetailProps {
 interface IProcessDetailState {
   processLevels: number[];
   users: { id: number; title: string }[];
-  approvers: { [level: number]: string[] }; // Sử dụng mảng các chuỗi (string[])
+  approvers: { [key: string]: string[] }; // Sử dụng mảng các chuỗi (string[])
   Title: string;
   ProcessName: string;
   NumberApporver: string;
@@ -81,44 +81,50 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
 
   public getProcessDetail = async (): Promise<void> => {
     const sp = spfi().using(SPFx(this.props.context));
-
+  
     try {
-        const items = await sp.web.lists.getByTitle("ProcessDetail").items
-            .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
-            .expand("Approver")();
-        
-        const filteredItems = items.filter((item: IProcessItem) => item.Title === this.props.formData.Title);
-
-        if (filteredItems.length > 0) {
-            const processDetails = filteredItems.map((item: IProcessItem) => ({
-                title: item.Title,
-                numberOfApproval: item.NumberOfApproval,
-                approver: Array.isArray(item.Approver)
-                    ? item.Approver.map((user: ISiteUserInfo) => user.Id.toString()) // Nếu là mảng, duyệt qua để lấy ID
-                    : item.Approver ? [item.Approver.Id.toString()] : [] // Nếu là đối tượng đơn, lấy ID của đối tượng đó
-            }));
-
-            console.log("Process details kết nối:", processDetails); // Kiểm tra dữ liệu sau khi map
-
-            const newApprovers = processDetails.reduce((acc: { [key: number]: string[] }, item) => {
-                const level = parseInt(item.numberOfApproval, 10);
-                if (!isNaN(level)) {
-                    acc[level] = item.approver || [];
-                }
-                return acc;
-            }, {});
-
-            console.log("Người duyệt mới:", newApprovers); // Kiểm tra dữ liệu mới của approvers
-
-            this.setState({ processDetails, approvers: newApprovers });
-        } else {
-            console.log("No matching data found");
-            this.setState({ processDetails: [], approvers: {} });
-        }
+      // Lấy dữ liệu từ SharePoint list 'ProcessDetail'
+      const items = await sp.web.lists.getByTitle("ProcessDetail").items
+        .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
+        .expand("Approver")();
+  
+      // Lọc các mục theo tiêu đề phù hợp
+      const filteredItems = items.filter((item: IProcessItem) => item.Title === this.props.formData.Title);
+  
+      if (filteredItems.length > 0) {
+        // Tạo dữ liệu từ các mục đã lọc
+        const processDetails = filteredItems.map((item: IProcessItem) => ({
+          title: item.Title,
+          numberOfApproval: item.NumberOfApproval,
+          approver: Array.isArray(item.Approver)
+            ? item.Approver.map((user: ISiteUserInfo) => user.Id.toString()) // Nếu là mảng người dùng
+            : item.Approver ? [item.Approver.Id.toString()] : [] // Nếu chỉ có một đối tượng duy nhất
+        }));
+  
+        // Cập nhật trạng thái approvers với các dữ liệu đã lọc từ SharePoint
+        const newApprovers = processDetails.reduce((acc: { [key: string]: string[] }, item) => {
+          const isAdvisor = item.numberOfApproval.includes("Tham mưu");
+          const level = isAdvisor 
+              ? `advisor_${item.numberOfApproval.replace('Tham mưu cấp ', '')}`
+              : item.numberOfApproval.replace('Cấp ', '');
+  
+          acc[level] = item.approver || [];
+          return acc;
+        }, {});
+  
+        console.log("Dữ liệu đã tải từ SharePoint:", newApprovers); // Kiểm tra dữ liệu approvers
+  
+        // Cập nhật trạng thái mới của các chi tiết quy trình và người duyệt
+        this.setState({ processDetails, approvers: newApprovers });
+      } else {
+        console.log("Không tìm thấy dữ liệu khớp với tiêu đề");
+        this.setState({ processDetails: [], approvers: {} });
+      }
     } catch (error) {
-        console.error('Error fetching process details:', error);
+      console.error('Lỗi khi tải chi tiết quy trình:', error);
     }
   };
+  
 
 
   public addProcessDetail = async (): Promise<void> => {
@@ -127,55 +133,61 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
 
     try {
         const processLevelNumber = parseInt(formData.ProcessLevelNumber, 10); // Lấy số cấp duyệt
-        console.log("Process Level Number:", processLevelNumber);
 
         if (!isNaN(processLevelNumber) && processLevelNumber > 0) {
+            // Kiểm tra xem Title đã tồn tại hay chưa
             const existingItems = await sp.web.lists.getByTitle("ProcessDetail").items
                 .filter(`Title eq '${formData.Title}'`)();
-
-            console.log("Existing items for Title:", formData.Title, existingItems);
 
             // Xóa các mục dư thừa nếu cấp duyệt thực tế nhỏ hơn cấp duyệt hiện tại
             const maxExistingLevel = existingItems.length;
             if (maxExistingLevel > processLevelNumber) {
-                console.log(`Deleting levels greater than ${processLevelNumber}`);
                 for (let level = processLevelNumber + 1; level <= maxExistingLevel; level++) {
-                    const itemToDelete = existingItems.find(item => item.NumberOfApproval === `${level}`);
+                    const itemToDelete = existingItems.find(item => item.NumberOfApproval === `${level}` || item.NumberOfApproval === `Tham mưu cấp ${level}`);
                     if (itemToDelete) {
-                        console.log(`Deleting item for level ${level}, item ID: ${itemToDelete.Id}`);
                         await sp.web.lists.getByTitle("ProcessDetail").items.getById(itemToDelete.Id).delete();
                     }
                 }
             }
 
-            // Xử lý thêm/cập nhật các mục cấp duyệt
+            // Xử lý thêm/cập nhật các mục cấp duyệt và tham mưu
             for (let level = 1; level <= processLevelNumber; level++) {
                 const approverIds = this.state.approvers[level] || []; // Mảng các user ID
-                console.log(`Level ${level} approvers:`, approverIds);
+                const advisorIds = this.state.approvers[`advisor_${level}`] || []; // Mảng các user ID cho tham mưu
 
                 // Gửi null nếu không có người duyệt hoặc mảng rỗng nếu có người duyệt
                 const approverData = approverIds.length === 0 ? [] : approverIds.map(id => parseInt(id, 10));
-                console.log(`Approver data to send:`, approverData);
+                const advisorData = advisorIds.length === 0 ? [] : advisorIds.map(id => parseInt(id, 10));
 
-                const existingItemForLevel = existingItems.find(item =>
-                    item.Title === formData.Title && 
-                    item.NumberOfApproval === `${level}`
-                );
-
-                if (existingItemForLevel) {
-                    console.log(`Updating existing item for level ${level}, item ID: ${existingItemForLevel.Id}`);
-                    await sp.web.lists.getByTitle("ProcessDetail").items.getById(existingItemForLevel.Id).update({
-                        ApproverId: approverData // Gửi null hoặc mảng các ID
+                // Kiểm tra và cập nhật dòng tham mưu
+                const existingAdvisorItem = existingItems.find(item => item.NumberOfApproval === `Tham mưu cấp ${level}`);
+                if (existingAdvisorItem) {
+                    console.log(`Updating existing advisor item for level ${level}, item ID: ${existingAdvisorItem.Id}`);
+                    await sp.web.lists.getByTitle("ProcessDetail").items.getById(existingAdvisorItem.Id).update({
+                        ApproverId: advisorData // Mảng người tham mưu
                     });
-                    console.log(`Updated item for level ${level}`);
                 } else {
-                    console.log(`Adding new item for level ${level}`);
+                    // Thêm mới nếu chưa tồn tại dòng tham mưu
+                    await sp.web.lists.getByTitle("ProcessDetail").items.add({
+                        Title: `${formData.Title}`,
+                        NumberOfApproval: `Tham mưu cấp ${level}`,
+                        ApproverId: advisorData // Mảng người tham mưu
+                    });
+                }
+
+                // Kiểm tra và cập nhật dòng cấp duyệt chính
+                const existingApproverItem = existingItems.find(item => item.NumberOfApproval === `${level}`);
+                if (existingApproverItem) {
+                    await sp.web.lists.getByTitle("ProcessDetail").items.getById(existingApproverItem.Id).update({
+                        ApproverId: approverData // Mảng người duyệt chính
+                    });
+                } else {
+                    // Thêm mới nếu chưa tồn tại dòng cấp duyệt
                     await sp.web.lists.getByTitle("ProcessDetail").items.add({
                         Title: `${formData.Title}`,
                         NumberOfApproval: `${level}`,
-                        ApproverId: approverData // Gửi null hoặc mảng các ID
+                        ApproverId: approverData // Mảng người duyệt chính
                     });
-                    console.log(`Added new item for level ${level}`);
                 }
             }
         } else {
@@ -184,7 +196,10 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
     } catch (error) {
         console.error('Error adding or updating item:', error);
     }
-  };
+};
+
+
+
 
 
   async componentDidUpdate(prevProps: IProcessDetailProps): Promise<void> {
@@ -225,38 +240,72 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
         label: user.title,
     }));
 
-    return this.state.processLevels.map((level, i) => (
-        <tr key={i}>
-            <td>{formData.Title}</td>
-            <td>{level}</td>
-            <td>
-                {editable ? (
-                    <Select
-                        isMulti
-                        name={`Approver${i}`}
-                        value={userOptions.filter(option =>
-                            (approvers[level] || []).includes(option.value)
-                        )} // Lọc ra những user đã chọn
-                        options={userOptions} // Danh sách người dùng
-                        onChange={(selectedOptions) => {
-                            const selectedIds = selectedOptions.map(option => option.value);
-                            this.setState((prevState) => ({
-                                approvers: { ...prevState.approvers, [level]: selectedIds }
-                            }));
-                        }}
-                        placeholder="Nhập tên người duyệt"
-                    />
-                ) : (
-                    <span>
-                        {approvers[level] && approvers[level].length > 0
-                            ? approvers[level].map(userId => users.find(user => user.id === parseInt(userId, 10))?.title || 'Không có người duyệt').join(', ')
-                            : 'Không có người duyệt'}
-                    </span>
-                )}
-            </td>
-        </tr>
-    ));
+    return this.state.processLevels
+        .map((level: number, i: number) => ([
+            <tr key={`advisor_${i}`}>
+                <td>{formData.Title}</td>
+                <td>Tham mưu cấp {level}</td>
+                <td>
+                    {editable ? (
+                        <Select
+                            isMulti
+                            name={`Advisor_${i}`}
+                            value={userOptions.filter(option =>
+                                (approvers[`advisor_${level}`] || []).includes(option.value)
+                            )} // Lọc ra những user đã chọn cho tham mưu
+                            options={userOptions} // Danh sách người dùng
+                            onChange={(selectedOptions) => {
+                                const selectedIds = selectedOptions.map(option => option.value);
+                                this.setState((prevState) => ({
+                                    approvers: { ...prevState.approvers, [`advisor_${level}`]: selectedIds }
+                                }));
+                            }}
+                            placeholder="Nhập tên người tham mưu"
+                        />
+                    ) : (
+                        <span>
+                            {approvers[`advisor_${level}`] && approvers[`advisor_${level}`].length > 0
+                                ? approvers[`advisor_${level}`].map(userId => users.find(user => user.id === parseInt(userId, 10))?.title || 'Không có tham mưu').join(', ')
+                                : 'Không có tham mưu'}
+                        </span>
+                    )}
+                </td>
+            </tr>,
+            <tr key={`approver_${i}`}>
+                <td>{formData.Title}</td>
+                <td>Cấp {level}</td>
+                <td>
+                    {editable ? (
+                        <Select
+                            isMulti
+                            name={`Approver_${i}`}
+                            value={userOptions.filter(option =>
+                                (approvers[level] || []).includes(option.value)
+                            )} // Lọc ra những user đã chọn cho cấp duyệt
+                            options={userOptions} // Danh sách người dùng
+                            onChange={(selectedOptions) => {
+                                const selectedIds = selectedOptions.map(option => option.value);
+                                this.setState((prevState) => ({
+                                    approvers: { ...prevState.approvers, [level]: selectedIds }
+                                }));
+                            }}
+                            placeholder="Nhập tên người duyệt"
+                        />
+                    ) : (
+                        <span>
+                            {approvers[level] && approvers[level].length > 0
+                                ? approvers[level].map(userId => users.find(user => user.id === parseInt(userId, 10))?.title || 'Không có người duyệt').join(', ')
+                                : 'Không có người duyệt'}
+                        </span>
+                    )}
+                </td>
+            </tr>
+        ]))
+        .reduce((acc, val) => acc.concat(val), []); // Thay thế flatMap bằng map rồi reduce
   };
+
+
+  
 
 
   public render(): React.ReactElement {    

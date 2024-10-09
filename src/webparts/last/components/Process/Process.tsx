@@ -263,7 +263,7 @@ export default class Process extends React.Component<{ context: WebPartContext }
                         onChange={this.handleSelectAllChange}
                         />
                     </th>
-                    <th style={{ width: '150px' }}>Mã qui trình 48</th>
+                    <th style={{ width: '150px' }}>Mã qui trình 51</th>
                     <th style={{ width: '200px' }}>Tên qui trình</th>
                     <th style={{ width: '150px' }}>Số cấp duyệt</th>
                     <th style={{ width: '150px' }}>Loại qui trình</th>
