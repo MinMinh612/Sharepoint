@@ -15,6 +15,7 @@ interface IProcessAddLevelState {
   successMessage: boolean;
   Approver: string;
   processDetails: { title: string; numberOfApproval: string; approver: string }[];
+  processTypes: { value: string, label: string }[];
 }
 
 export default class ProcessAddLevel extends React.Component<IProcessAddLevelProps, IProcessAddLevelState> {
@@ -31,6 +32,7 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
       successMessage: false,
       Approver: '',
       processDetails: [],
+      processTypes: [],
     };
     this.processDetailRef = React.createRef();  
   }
@@ -48,61 +50,103 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
         NumberApporver // Số cấp duyệt 
     };
 
-    if (itemId) {
-        // Nếu có itemId, cập nhật mục hiện có
-        await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update(fieldsToUpdate);
-    } else {
-        // Nếu không có itemId, tạo mới mục
-        const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToUpdate);
-        
-        const newItemId = addItemResult?.data?.ID || addItemResult?.data?.Id;
+    try {
+        // Kiểm tra xem Title đã tồn tại trong danh sách hay chưa
+        const existingItems = await sp.web.lists.getByTitle(listTitle).items
+            .filter(`Title eq '${Title}'`)()
+            .catch(error => {
+                console.error("Error checking for existing items:", error);
+                return [];
+            });
 
-        if (newItemId) {
-            this.setState({ itemId: newItemId });
+        if (existingItems.length > 0) {
+            // Nếu Title đã tồn tại, chỉ cập nhật mục đó
+            const existingItemId = existingItems[0].Id;
+            await sp.web.lists.getByTitle(listTitle).items.getById(existingItemId).update(fieldsToUpdate);
+            this.setState({ itemId: existingItemId });
+            console.log(`Updated existing item with Title: ${Title}`);
+        } else if (itemId) {
+            // Nếu có itemId, cập nhật mục hiện có (dựa trên itemId)
+            await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update(fieldsToUpdate);
+            console.log(`Updated existing item with ID: ${itemId}`);
+        } else {
+            // Nếu không có itemId và Title chưa tồn tại, tạo mới mục
+            const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToUpdate);
+            const newItemId = addItemResult?.data?.ID || addItemResult?.data?.Id;
+
+            if (newItemId) {
+                this.setState({ itemId: newItemId });
+                console.log(`Added new item with Title: ${Title}`);
+            }
         }
+
+        // Cập nhật trạng thái để hiển thị thông báo thành công
+        this.setState({ successMessage: true });
+
+        // Gọi hàm addProcessDetail từ ProcessDetail sau khi addProcess hoàn thành
+        if (this.processDetailRef.current) {
+            await this.processDetailRef.current.addProcessDetail();  // Gọi hàm addProcessDetail
+        }
+
+        // Tự động ẩn thông báo sau 2 giây
+        setTimeout(() => {
+            this.setState({ successMessage: false });
+        }, 2000);
+
+    } catch (error) {
+        console.error("Error in addProcess:", error);
     }
-
-    // Cập nhật trạng thái để hiển thị thông báo thành công
-    this.setState({ successMessage: true });
-
-    // Gọi hàm addProcessDetail từ ProcessDetail sau khi addProcess hoàn thành
-    if (this.processDetailRef.current) {
-      console.log('Vô hàm')
-      await this.processDetailRef.current.addProcessDetail();  // Call the addProcessDetail method
-    }
-
-    // Tự động ẩn thông báo sau 2 giây
-    setTimeout(() => {
-        this.setState({ successMessage: false });
-    }, 2000);
-}
-
-public getProcessDetail = async (): Promise<void> => {
-  const sp = spfi().using(SPFx(this.props.context));
-
-  try {
-    // Gọi API SharePoint để lấy danh sách dữ liệu
-    const items = await sp.web.lists.getByTitle("ProcessDetail").items
-      .select("Title", "NumberOfApproval", "Approver/Title")
-      .expand("Approver")
-      ();
-
-    // Xử lý dữ liệu sau khi lấy
-    const processDetails = items.map((item: IProcessItem) => ({
-      title: item.Title,
-      numberOfApproval: item.NumberOfApproval,
-      approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
-    }));
-
-    // console.log('Chi tiết Process:', processDetails);
-
-    // Bạn có thể setState hoặc xử lý dữ liệu tại đây
-    this.setState({ processDetails });
-
-  } catch (error) {
-    console.error('Error fetching process details:', error);
   }
-};
+
+
+  public getProcessDetail = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+      // Gọi API SharePoint để lấy danh sách dữ liệu
+      const items = await sp.web.lists.getByTitle("ProcessDetail").items
+        .select("Title", "NumberOfApproval", "Approver/Title")
+        .expand("Approver")
+        ();
+
+      // Xử lý dữ liệu sau khi lấy
+      const processDetails = items.map((item: IProcessItem) => ({
+        title: item.Title,
+        numberOfApproval: item.NumberOfApproval,
+        approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
+      }));
+
+      // console.log('Chi tiết Process:', processDetails);
+
+      // Bạn có thể setState hoặc xử lý dữ liệu tại đây
+      this.setState({ processDetails });
+
+    } catch (error) {
+      console.error('Error fetching process details:', error);
+    }
+  };
+
+  public getProcessTypes = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+        const items = await sp.web.lists.getByTitle("ProcessType").items
+            .select("Title", "ProcessTypeName")();
+
+        console.log("Process Types:", items);
+
+        // Lưu vào state
+        this.setState({
+            processTypes: items.map(item => ({
+                value: item.Title,
+                label: item.ProcessTypeName
+            }))
+        });
+
+    } catch (error) {
+        console.error('Error fetching ProcessType:', error);
+    }
+  };
 
 
   // Xử lý sự kiện khi người dùng thay đổi giá trị input
@@ -143,6 +187,7 @@ public getProcessDetail = async (): Promise<void> => {
 
   public async componentDidMount(): Promise<void> {
     await this.getProcessDetail();
+    await this.getProcessTypes();
   }
 
 
@@ -204,9 +249,12 @@ public getProcessDetail = async (): Promise<void> => {
                 value={ProcessType}
                 onChange={this.handleInputChange}
               >
-                <option value="Nội bộ">Nội bộ</option>
-                <option value="Khu vực">Khu vực</option>
-                <option value="Tập đoàn">Tập đoàn</option>
+                <option value="">-- Chọn loại qui trình --</option>
+                {this.state.processTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className={styles.formGroup}>
@@ -224,18 +272,22 @@ public getProcessDetail = async (): Promise<void> => {
             </div>
           </form>
         </div>
-        <ProcessDetail
-          ref={this.processDetailRef} // Truyền ref vào component
-          formDataList={[]} // Bạn có thể cung cấp dữ liệu nếu có
-          formData={{
-            ProcessLevelNumber: this.state.NumberApporver,
-            ProcessName: this.state.ProcessName,
-            Title: this.state.Title,
-            Approver: this.state.Approver,
-          }} // Truyền NumberApporver và ProcessName
-          editable={true} // Cho phép chỉnh sửa
-          context={this.props.context}
-        />
+        
+        {/* Hiển thị ProcessDetail nếu NumberApporver không phải là 0 hoặc rỗng */}
+        {NumberApporver && parseInt(NumberApporver, 10) > 0 && (
+          <ProcessDetail
+            ref={this.processDetailRef} // Truyền ref vào component
+            formDataList={[]} // Bạn có thể cung cấp dữ liệu nếu có
+            formData={{
+              ProcessLevelNumber: this.state.NumberApporver,
+              ProcessName: this.state.ProcessName,
+              Title: this.state.Title,
+              Approver: this.state.Approver,
+            }} // Truyền NumberApporver và ProcessName
+            editable={true} // Cho phép chỉnh sửa
+            context={this.props.context}
+          />
+        )}
       </div>
     );
   }
