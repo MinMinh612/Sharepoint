@@ -1,14 +1,26 @@
+//Thêm được dữ liệu với user rỗng
+
 import * as React from 'react';
 import styles from './SuggestionAdd.module.scss';
 import FooterButton from './FooterButton';
 import StatusBar from './StatusBar';
 import { spfi, SPFx } from '@pnp/sp';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import '@pnp/sp/lists';
-import '@pnp/sp/items';
+import "@pnp/sp/webs";
+import "@pnp/sp/lists";
+import "@pnp/sp/items";
 import '@pnp/sp/attachments';
+import '@pnp/sp/site-users/web'; 
+import Select from 'react-select'
 import { FaFileAlt, FaFileWord, FaFilePdf, FaDownload } from 'react-icons/fa';
-import {DataSuggest} from './DemoSuggest'
+import { DataSuggest } from './DemoSuggest'
+import Popup from '../../../../Components/Popup'
+// import ProcessDetail from '../../../last/components/Process/ProcessDetail'
+import { IProcessItem } from '../../../last/components/Process/IProcessData';
+import { ISiteUserInfo } from '@pnp/sp/site-users';
+import ShowCommentSuggest from '../../../../Components/ShowCommentSuggest';
+
+
 
 interface ISuggestionAddProps {
   onClose: () => void;
@@ -27,9 +39,22 @@ interface ISuggestionAddState {
   processName: string;
   files: File[];
   plans: { title: string, planName: string, planNote: string }[];
-  emergencies: { title: string, EmergencyName: string, EmergencyNote: string }[]; 
-  processes: { ProcessCode: string, ProcessName: string, Quantity_Of_Approve: string, ProcessType: string }[]; 
-  itemId?: number; 
+  emergencies: { title: string, EmergencyName: string, EmergencyNote: string }[];
+  processes: { ProcessCode: string, ProcessName: string, NumberApporver: string, ProcessType: string }[];
+  itemId?: number;
+  showModal: boolean,
+  selectedProcess: string;
+  processDetails: { title: string; numberOfApproval: string; approver: string[] }[];
+  approvers: { [key: string]: string[] };
+  selectedProcessCode?: string;
+  Status: 'Draft' | 'Staff';
+  commentProcessDetailTitle: string;
+  commentNumberOfApprover: string;
+  commentApprover: IApproverComment[];
+  itemProcessDetail: [];
+  selectedUsers: IUserOption[]; // Test thêm user
+  users: { value: number; label: string }[]; //test
+	commentData: IComment[];
 }
 
 interface FieldsToAdd {
@@ -42,13 +67,48 @@ interface FieldsToAdd {
   Status: 'Draft' | 'Staff';
 }
 
+interface IFieldsToAddComment {
+  Title: string;
+  SuggestName: string;
+  ProcessTitle?: string;  // Dấu hỏi "?" để thể hiện giá trị này có thể undefined
+  ProcessNumberOfApprover?: string;
+  ProcessApprover?: { results: number[] };
+}
+
+interface IUserOption { //test thêm user
+  label: string;
+  value: number; 
+}
+
+// interface IApprover {
+//   value: number; // Id của người dùng
+//   label: string; // Tên người dùng
+// }
+
+interface IApproverComment {
+  processTitle: string;
+  numberOfApproval: string;
+  value: string;
+  label: string;
+  comment?: string;
+}
+
+interface IComment {
+  Title: string;
+  SuggestName: string;
+  ProcessTitle: string;
+  ProcessNumberOfApprover: string;
+  ProcessApprover: { Title: string }[]; // Assuming ProcessApprover contains an array of users
+}
+
+
 export default class SuggestionAdd extends React.Component<ISuggestionAddProps, ISuggestionAddState> {
   constructor(props: ISuggestionAddProps) {
     super(props);
     this.state = {
       activeTab: 'content',
       description: props.suggestionToEdit?.Title || '',
-      plan:  props.suggestionToEdit?.Plan || '',
+      plan: props.suggestionToEdit?.Plan || '',
       emergency: props.suggestionToEdit?.Emergency || '',
       dateTime: props.suggestionToEdit?.DateTime || '',
       emergencies: [],
@@ -58,7 +118,26 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       files: [],
       plans: [],
       itemId: props.suggestionToEdit?.Id,
+      showModal: false,
+      selectedProcess: '',
+      processDetails: [],
+      approvers: {},
+      selectedProcessCode: undefined,
+      Status: 'Draft',
+      commentProcessDetailTitle: '',
+      commentNumberOfApprover: '',
+      commentApprover: [],
+      itemProcessDetail: [],
+      selectedUsers: [], //Test thêm user
+      users: [],
+      commentData: [],
     };
+    this.addComment = this.addComment.bind(this);
+    this._inputChange = this._inputChange.bind(this);
+    this._toggleModal = this._toggleModal.bind(this);
+    this.addSuggest = this.addSuggest.bind(this);
+    this.getUsers = this.getUsers.bind(this);
+    this.getComment = this.getComment.bind(this);
   }
 
   // Lưu phiếu trống trước
@@ -66,18 +145,47 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     await this.getPlanData();
     await this.getEmergency();
     await this.getProcess();
-  
-    if (this.props.suggestionToEdit && this.props.suggestionToEdit.Attachments) {
-      const files = this.props.suggestionToEdit.Attachments.map(attachment => {
-        return new File([], attachment.FileName);
+    await this.getProcessDetail();
+    await this.getUsers();
+    await this.getComment();
+
+    if (this.state.processDetails.length === 0) {
+      this.setState({
+        processDetails: [...this.state.processDetails],
       });
-      this.setState({ files });
     }
-  
+
+    if (this.props.suggestionToEdit) {
+      const { Title, Plan, Emergency, DateTime, Note, ProcessName } = this.props.suggestionToEdit;
+
+      // Cập nhật lại state với dữ liệu cũ
+      this.setState({
+        description: Title || '',
+        plan: Plan || '',
+        emergency: Emergency || '',
+        dateTime: DateTime || '',
+        note: Note || '',
+        processName: ProcessName || '',  // Lưu processName
+        selectedProcessCode: this.state.processes.find(p => p.ProcessName === ProcessName)?.ProcessCode
+      }, async () => {
+        // Gọi hàm getProcessDetail sau khi set lại ProcessCode
+        if (this.state.selectedProcessCode) {
+          await this.getProcessDetail();
+        }
+      });
+
+      if (this.props.suggestionToEdit && this.props.suggestionToEdit.Attachments) {
+        const files = this.props.suggestionToEdit.Attachments.map(attachment => {
+          return new File([], attachment.FileName);
+        });
+        this.setState({ files });
+      }
+    }
+
     if (!this.props.suggestionToEdit) {
       const listTitle = 'Suggest';
       const sp = spfi().using(SPFx(this.props.context));
-  
+
       try {
         const fieldsToAdd: FieldsToAdd = {
           Title: '',
@@ -88,38 +196,38 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
           ProcessName: '',
           Status: 'Draft', // Set status 'Draft'
         };
-  
+
         if (!fieldsToAdd.DateTime) {
           delete fieldsToAdd.DateTime; // Or set null
         }
-  
+
         const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
         const itemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
-  
+
         if (!itemId) {
           throw new Error('Item ID not found in the response. Please check the response structure.');
         }
-  
+
         this.setState({ itemId });
-  
+
       } catch (error) {
         console.error('Error adding item:', error);
         alert('Failed to auto-save item: ' + error.message);
       }
     }
   }
-  
+
   // Thêm data vào Suggest list
   private async addSuggest(): Promise<void> {
     const { description, plan, dateTime, emergency, note, processName, files, itemId } = this.state;
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
       const fieldsToUpdate: FieldsToAdd = {
         Status: 'Staff',  // Update status to 'Staff'
       };
-  
+
       // Dynamically add fields only if they have values
       if (description) fieldsToUpdate.Title = description;
       if (plan) fieldsToUpdate.Plan = plan;
@@ -127,11 +235,11 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       if (emergency) fieldsToUpdate.Emergency = emergency;
       if (note) fieldsToUpdate.Note = note;
       if (processName) fieldsToUpdate.ProcessName = processName;
-  
+
       if (itemId) {
         // Update existing item
         await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update(fieldsToUpdate);
-  
+
         // Upload attachments if there are any
         if (files && files.length > 0) {
           for (const file of files) {
@@ -139,16 +247,16 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
             await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, arrayBuffer);
           }
         }
-  
+
         alert('Item updated successfully!');
       } else {
         // Create new item if itemId doesn't exist
         const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToUpdate);
         const newItemId = addItemResult?.data?.ID || addItemResult?.data?.Id;
-  
+
         if (newItemId) {
           this.setState({ itemId: newItemId });
-  
+
           // Upload attachments if there are any
           if (files && files.length > 0) {
             for (const file of files) {
@@ -156,25 +264,25 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
               await sp.web.lists.getByTitle(listTitle).items.getById(newItemId).attachmentFiles.add(file.name, arrayBuffer);
             }
           }
-  
+
           // alert('Item added and updated successfully!');
         } else {
           // throw new Error('Failed to create a new item.');
         }
       }
-  
+
       // Force update to ensure StatusBar is refreshed
       this.forceUpdate();
-  
+
       // Optionally, you can also close the form or perform other actions after saving
       // this.props.onClose();
-  
+
     } catch (error) {
       // console.error('Error saving item:', error);
       // alert('Failed to save item: ' + error.message);
     }
   }
-    
+
   // getdata Plan từ Plan list
   private async getPlanData(): Promise<void> {
     const listTitle = 'Plan';
@@ -202,18 +310,18 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
   private async getEmergency(): Promise<void> {
     const listTitle = 'Emergency';
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
       const items = await sp.web.lists.getByTitle(listTitle).items
         .select('Title', 'EmergencyName', 'EmergencyNote') // Chọn các trường cần thiết
         ();
-  
+
       const emergencies = items.map(item => ({
         title: item.Title,
         EmergencyName: item.EmergencyName,
         EmergencyNote: item.EmergencyNote,
       }));
-  
+
       this.setState({ emergencies });
     } catch (error) {
       // console.error('Error fetching Emergency data:', error);
@@ -221,31 +329,30 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     }
   }
 
-    //getdata Process
-    private async getProcess(): Promise<void> {
-      const listTitle = 'Process';
-      const sp = spfi().using(SPFx(this.props.context));
-    
-      try {
-        const items = await sp.web.lists.getByTitle(listTitle).items
-          .select('Title', 'ProcessName', 'NumberApprover', 'ProcessType') 
-          ();
-    
-        const processes = items.map(item => ({
-          ProcessCode: item.Title,  // Mapping 'Title' to 'ProcessCode'
-          ProcessName: item.ProcessName,  // Mapping 'ProcessName'
-          Quantity_Of_Approve: item.NumberApprover,  // Mapping 'NumberApprover' to 'Quantity_Of_Approve'
-          ProcessType: item.ProcessType,  // Mapping 'ProcessType'
-        }));
-    
-        this.setState({ processes });
-      } catch (error) {
-        console.error('Error fetching Process data:', error);
-        alert('Failed to fetch Process data: ' + error.message);
-      }
+  //getdata Process
+  private async getProcess(): Promise<void> {
+    const listTitle = 'Process';
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+      const items = await sp.web.lists.getByTitle(listTitle).items
+        .select('Title', 'ProcessName', 'NumberApporver', 'ProcessType')
+        ();
+
+      const processes = items.map(item => ({
+        ProcessCode: item.Title,
+        ProcessName: item.ProcessName,
+        NumberApporver: item.NumberApporver,
+        ProcessType: item.ProcessType,
+      }));
+
+      this.setState({ processes });
+    } catch (error) {
+      console.error('Error fetching Process data:', error);
+      alert('Failed to fetch Process data: ' + error.message);
     }
-          
-  
+  }
+
 
   // Auto save của các feild (k có file)
   private _inputChange = async (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): Promise<void> => {
@@ -254,12 +361,12 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
     // Mapping feildName với column sharepoint (Bên trái FeildName bên phải column sharepoint)
     const fieldMapping: { [key: string]: string } = {
-        description: 'Title',
-        plan: 'Plan',
-        dateTime: 'DateTime',
-        emergency: 'Emergency',
-        note: 'Note',
-        processName: 'ProcessName',
+      description: 'Title',
+      plan: 'Plan',
+      dateTime: 'DateTime',
+      emergency: 'Emergency',
+      note: 'Note',
+      processName: 'ProcessName',
     };
 
     const internalFieldName = fieldMapping[name];
@@ -272,22 +379,22 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
     // If the itemId exists, update the corresponding SharePoint field
     if (itemId && internalFieldName) {
-        const listTitle = 'Suggest';
-        const sp = spfi().using(SPFx(this.props.context));
+      const listTitle = 'Suggest';
+      const sp = spfi().using(SPFx(this.props.context));
 
-        try {
-            // Update theo FieldName
-            await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
-                [internalFieldName]: value
-            });
+      try {
+        // Update theo FieldName
+        await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
+          [internalFieldName]: value
+        });
 
-        } catch (error) {
-          //Mở phong ấn cái này là 1 mớ lỗi đó ;))
-            // console.error(`Error updating ${name} field:`, error);
-            // alert(`Failed to update ${name} field: ` + error.message);
-        }
+      } catch (error) {
+        //Mở phong ấn cái này là 1 mớ lỗi đó ;))
+        // console.error(`Error updating ${name} field:`, error);
+        // alert(`Failed to update ${name} field: ` + error.message);
+      }
     }
-};
+  };
 
   //Tự động tải file lên và view giao diện
   private handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -295,30 +402,30 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     const files = event.target.files;
 
     if (files && itemId) {
-        const listTitle = 'Suggest';
-        const sp = spfi().using(SPFx(this.props.context));
-        const uploadedFiles: File[] = []; // Khai báo uploadedFiles
+      const listTitle = 'Suggest';
+      const sp = spfi().using(SPFx(this.props.context));
+      const uploadedFiles: File[] = []; // Khai báo uploadedFiles
 
-        try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const arrayBuffer = await file.arrayBuffer();
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const arrayBuffer = await file.arrayBuffer();
 
-                // Upload each file as an attachment
-                await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, arrayBuffer);
-                uploadedFiles.push(file); // Thêm file vào uploadedFiles sau khi upload thành công
-            }
-            
-            // Cập nhật state để render danh sách các file đã upload
-            this.setState(prevState => ({
-                files: [...prevState.files, ...uploadedFiles]
-            }));
-
-            // alert('Files uploaded successfully!');
-        } catch (error) {
-            // console.error('Error uploading files:', error);
-            // alert('Failed to upload files: ' + error.message);
+          // Upload each file as an attachment
+          await sp.web.lists.getByTitle(listTitle).items.getById(itemId).attachmentFiles.add(file.name, arrayBuffer);
+          uploadedFiles.push(file); // Thêm file vào uploadedFiles sau khi upload thành công
         }
+
+        // Cập nhật state để render danh sách các file đã upload
+        this.setState(prevState => ({
+          files: [...prevState.files, ...uploadedFiles]
+        }));
+
+        // alert('Files uploaded successfully!');
+      } catch (error) {
+        // console.error('Error uploading files:', error);
+        // alert('Failed to upload files: ' + error.message);
+      }
     }
   };
 
@@ -348,53 +455,53 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
               return <FaFileAlt />;
           }
         })()}
-        <span style={{ 
-          marginRight: '10px', 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis', 
+        <span style={{
+          marginRight: '10px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          fontFamily: 'Times New Roman, serif',  
-          fontSize: '10px' 
+          fontFamily: 'Times New Roman, serif',
+          fontSize: '10px'
         }}>
           {fileName.length > 10 ? `${fileName.slice(0, 20)}...` : fileName}
-        </span>        
+        </span>
       </div>
     );
   };
-  
+
   //Xóa file
   private removeFile = async (fileIndex: number): Promise<void> => {
     const { itemId } = this.state;
     const fileToRemove = this.state.files[fileIndex];
-  
+
     if (!itemId) {
       alert('Item ID is not set.');
       return;
     }
-  
+
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
       // Xóa file khỏi SharePoint
       await sp.web.lists.getByTitle(listTitle)
         .items.getById(itemId)
         .attachmentFiles.getByName(fileToRemove.name)
         .delete();
-  
+
       // Xóa file khỏi giao diện người dùng
       const updatedFiles = [...this.state.files];
       updatedFiles.splice(fileIndex, 1);
       this.setState({ files: updatedFiles });
-  
+
       alert('File removed successfully!');
-  
+
     } catch (error) {
       console.error('Error removing file:', error);
       alert('Failed to remove file: ' + error.message);
     }
   };
-  
+
   // Đưa Form lại ban đầu sau khu xóa
   private resetForm = (): void => {
     this.setState({
@@ -414,24 +521,24 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
   private deleteSuggest = async (): Promise<void> => {
     const userConfirmed = window.confirm("Bạn có muốn xóa phiếu này không?");
-    
+
     if (!userConfirmed) {
       return; // Nếu người dùng chọn "Không", không làm gì cả
     }
-  
+
     const { itemId } = this.state;
-  
+
     if (!itemId) {
       alert('No item found to delete.');
       return;
     }
-  
+
     const listTitle = 'Suggest';
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
       await sp.web.lists.getByTitle(listTitle).items.getById(itemId).delete();
-  
+
       alert('Item deleted successfully!');
       // Reset form state after deletion
       this.resetForm();
@@ -441,8 +548,315 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     }
   }
 
-    
+  // đóng mở popup Process
+  _toggleModal = (): void => {
+    this.setState((prevState) => ({
+      showModal: !prevState.showModal, // Đảo ngược trạng thái hiển thị popup
+    }));
+  };
+
+  _handleProcessSelect = (selectedOption: { value: string, label: string }): void => {
+    const selectedProcess = this.state.processes.find(process => process.ProcessCode === selectedOption.value);
+    if (selectedProcess) {
+      // Cập nhật state cho processName và selectedProcessCode
+      this.setState({
+        processName: selectedOption.label,  // Hiển thị ProcessName trong ô input
+        selectedProcessCode: selectedOption.value,  // Lưu lại ProcessCode
+      }, async () => {
+        const { itemId } = this.state;
+        if (itemId) {
+          const listTitle = 'Suggest';
+          const sp = spfi().using(SPFx(this.props.context));
+          try {
+            // Cập nhật giá trị processName vào SharePoint ngay sau khi chọn quy trình
+            await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update({
+              ProcessName: selectedOption.label
+            });
+
+            // Gọi các hàm khác sau khi đã cập nhật ProcessName
+            await this.getProcessDetail();
+
+          } catch (error) {
+            console.error('Error saving ProcessName:', error);
+          }
+        } else {
+          console.error('Không tìm thấy itemId, không thể cập nhật ProcessName');
+        }
+      });
+    }
+  };
+
+  public getProcessDetail = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+  
+    try {
+        if (!this.state.selectedProcessCode || this.state.selectedProcessCode.trim() === '') {
+            console.error('Process code is missing or empty');
+            return;
+        }
+  
+        const items = await sp.web.lists.getByTitle("ProcessDetail").items
+            .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
+            .expand("Approver")();
+  
+        // Filter by selectedProcessCode and map the approver IDs to the state
+        const filteredItems = items.filter((item: IProcessItem) =>
+            item?.Title?.trim().toLowerCase() === this.state.selectedProcessCode?.trim().toLowerCase()
+        );
+  
+        if (filteredItems.length > 0) {
+            const processDetails = filteredItems.map((item: IProcessItem) => ({
+                title: item?.Title ?? '',
+                numberOfApproval: item?.NumberOfApproval ?? '',
+                approver: Array.isArray(item?.Approver)
+                    ? item.Approver.map((user: ISiteUserInfo) => user?.Id.toString()) // Store approver IDs
+                    : item?.Approver ? [item.Approver.Id.toString()] : [],
+            }));
+  
+            const allApprovers = filteredItems.flatMap((item: IProcessItem) =>
+                Array.isArray(item?.Approver)
+                    ? item.Approver.map((user: ISiteUserInfo) => ({
+                        processTitle: item.Title, 
+                        numberOfApproval: item.NumberOfApproval, 
+                        value: user?.Id.toString(),
+                        label: user?.Title
+                    }))
+                    : item?.Approver ? [{
+                        processTitle: item.Title, 
+                        numberOfApproval: item.NumberOfApproval, 
+                        value: item.Approver.Id.toString(), 
+                        label: item.Approver.Title
+                    }] : []
+            );
+  
+            console.log('Processed approvers:', allApprovers);
+  
+            this.setState({ 
+                processDetails: processDetails,
+                commentApprover: allApprovers,
+            });
+        } else {
+            console.log("Không tìm thấy dữ liệu khớp với ProcessCode");
+            this.setState({ processDetails: [], commentApprover: [] });
+        }
+    } catch (error) {
+        console.error('Lỗi khi tải chi tiết quy trình:', error);
+    }
+  };
+  
+  
+
+  private async addComment(): Promise<void> {
+    const { itemId, description, selectedProcessCode, processDetails, commentApprover } = this.state;
+
+    if (!itemId) {
+        throw new Error('Item ID is missing');
+    }
+
+    if (!selectedProcessCode || selectedProcessCode.trim() === '') {
+        throw new Error('Process code is missing or empty');
+    }
+
+    const listTitle = 'Comment'; // Tên list Comment
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+        if (processDetails.length === 0) {
+            throw new Error('No process details found');
+        }
+
+        // Loop over each process detail to add comments
+        for (const detail of processDetails) {
+            console.log('Processing detail:', detail);
+            const { title, numberOfApproval } = detail;
+
+            if (!description || !title || !numberOfApproval) {
+                throw new Error("One or more fields are missing or empty.");
+            }
+
+            const fieldsToAdd: IFieldsToAddComment = {
+                Title: itemId.toString(),
+                SuggestName: description,
+                ProcessTitle: title,
+                ProcessNumberOfApprover: numberOfApproval,
+            };
+
+            console.log('Fields to add (without approver):', fieldsToAdd);
+
+            // Add the basic fields (without approvers) to the SharePoint list
+            const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
+            console.log('Add item result:', addItemResult);
+
+            // Retrieve the newly added item ID
+            const addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
+            console.log('Added item ID:', addedItemId);
+
+            if (!addedItemId) {
+                throw new Error('Failed to retrieve the added item ID');
+            }
+
+            // Filter approvers related to the current process detail (based on title and numberOfApproval)
+            const relatedApprovers = commentApprover.filter(
+                approver => approver.processTitle === title && approver.numberOfApproval === numberOfApproval
+            );
+            console.log('Related approvers for process detail:', relatedApprovers);
+
+            if (relatedApprovers.length > 0) {
+                const userIds = relatedApprovers.map((user: IApproverComment) => ({ Id: user.value }));
+                console.log('User IDs to add (formatted):', userIds);
+
+                // Update the ProcessApprover field for the added comment
+                const updateItemResult = await sp.web.lists.getByTitle(listTitle).items.getById(addedItemId).update({
+                    ProcessApproverId: userIds.map(user => user.Id),
+                });
+
+                console.log('Users added to ProcessApprover:', updateItemResult);
+            } else {
+                console.log('No users selected for this process detail, skipping approver update.');
+            }
+        }
+
+        console.log('All comments and process details added successfully!');
+    } catch (error) {
+        console.error('Error during addComment execution:', error);
+    }
+  }
+
+public getUsers = async (): Promise<void> => {
+  const sp = spfi().using(SPFx(this.props.context));
+  try {
+    const groupUsers: ISiteUserInfo[] = await sp.web.siteUsers.filter("IsSiteAdmin eq false")();
+    const userList = groupUsers.map((user: ISiteUserInfo) => ({
+      value: user.Id,   // Đổi từ 'id' thành 'value' để phù hợp với yêu cầu của Select
+      label: user.Title, // Đổi từ 'title' thành 'label'
+    }));
+
+    this.setState({ users: userList });
+  } catch (error) {
+    console.error('Error fetching users from site:', error);
+  }
+};
+
+
+public async getComment(): Promise<void> {
+  const sp = spfi().using(SPFx(this.props.context)); 
+  
+  try {
+    // Fetch the items from the "Comment" list
+    const commentItems = await sp.web.lists.getByTitle('Comment').items
+      .select('Title', 'SuggestName', 'ProcessTitle', 'ProcessNumberOfApprover', 'ProcessApprover/Title')
+      .expand('ProcessApprover') // To expand and get the user details
+      .filter(`Title eq '${this.props.suggestionToEdit?.Id}'`) // Filter by the current item ID
+      ();
+
+    console.log("Fetched comment items:", commentItems);
+
+    if (commentItems.length > 0) {
+      // Process the fetched comments and set in the state
+      const processDetails = commentItems.map(item => ({
+        title: item.ProcessTitle,
+        numberOfApproval: item.ProcessNumberOfApprover,
+        approver: item.ProcessApprover.map((approver: { Title: string }) => approver.Title), // Map to a list of approver titles
+      }));
+
+      console.log("Updated processDetails from getComment:", processDetails);
+
+      // Update the state with the fetched process details
+      this.setState({ processDetails });
+    }
+  } catch (error) {
+    console.error("Error fetching comment items:", error);
+  }
+}
+
+renderProcessDetailsTable = (): JSX.Element => {
+  const { users, processDetails } = this.state;
+
+  // Chuyển đổi user ID thành tên để hiển thị trong select
+  const userOptions = users.map((user) => ({
+    value: user.value.toString(),
+    label: user.label,
+  }));
+
+  return (
+    <form className={styles.tableContainer}>
+      <table className="table">
+        <thead className="thead">
+          <tr>
+            <th style={{ width: '200px' }}>Mã quy trình</th>
+            <th style={{ width: '100px' }}>Cấp duyệt</th>
+            <th style={{ width: 'auto' }}>Người duyệt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {processDetails.map((detail, index) => (
+            <tr key={index}>
+              <td>{detail.title}</td>
+              <td>{detail.numberOfApproval}</td>
+              <td>
+                <Select
+                  isMulti
+                  name={`Approver_${index}`}
+                  value={userOptions.filter(option =>
+                    (detail.approver || []).includes(option.value)
+                  )} // Lọc ra những user đã được chọn
+                  options={userOptions} // Hiển thị tất cả người dùng có sẵn
+                  onChange={(selectedOptions) => {
+                    const selectedIds = selectedOptions ? selectedOptions.map(option => option.value) : [];
+                    console.log("Selected Options:", selectedOptions);
+                    console.log("Selected IDs:", selectedIds);
+
+                    // Cập nhật lại processDetails và commentApprover với các user đã chọn/bỏ
+                    this.setState((prevState) => {
+                      const updatedProcessDetails = prevState.processDetails.map((item, i) =>
+                        i === index
+                          ? { ...item, approver: selectedIds }
+                          : item
+                      );
+
+                      // Cập nhật commentApprover đồng bộ với processDetails
+                      const updatedCommentApprover = prevState.commentApprover.filter(
+                        (item) => item.processTitle !== detail.title || item.numberOfApproval !== detail.numberOfApproval
+                      );
+
+                      const newApprovers = selectedOptions.map((user) => ({
+                        processTitle: detail.title,
+                        numberOfApproval: detail.numberOfApproval,
+                        value: user.value,
+                        label: user.label,
+                      }));
+
+                      return {
+                        processDetails: updatedProcessDetails,
+                        commentApprover: [...updatedCommentApprover, ...newApprovers],
+                      };
+                    }, () => {
+                      console.log("Updated Process Details:", this.state.processDetails);
+                      console.log("Updated Comment Approver:", this.state.commentApprover); // Check updated approvers
+                    });
+                  }}
+                  placeholder="Chọn người duyệt"
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </form>
+  );
+};
+
+
+
+
+
   public render(): React.ReactElement<ISuggestionAddProps> {
+    const processOptions = this.state.processes.map((process) => ({
+      value: process.ProcessCode,   // Dùng ProcessCode cho value
+      label: process.ProcessName,   // Dùng ProcessName cho nhãn
+      title: process.ProcessName,
+    }));
+
     return (
       <div>
         {this.state.itemId !== undefined && (
@@ -506,8 +920,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                       type="datetime-local"
                       name="dateTime"
                       // value={this.state.dateTime}
-                      value={this.state.dateTime ? 
-                        new Date(new Date(this.state.dateTime).getTime() + 7 * 60 * 60 * 1000).toISOString().substring(0, 16) : 
+                      value={this.state.dateTime ?
+                        new Date(new Date(this.state.dateTime).getTime() + 7 * 60 * 60 * 1000).toISOString().substring(0, 16) :
                         new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().substring(0, 16)
                       }
                       onChange={this._inputChange}
@@ -517,14 +931,14 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                   </label>
                 </div>
                 <div className={styles.row}>
-                <label className={styles.label}>
+                  <label className={styles.label}>
                     Độ ưu tiên:
                     <select
                       name="emergency"
                       value={this.state.emergency}
                       onChange={this._inputChange}
                       className={styles.select}
-                      style={{ width: 'auto'}}
+                      style={{ width: 'auto' }}
                     >
                       <option value="">Chọn độ ưu tiên</option>
                       {this.state.emergencies.map((item, index) => (
@@ -534,26 +948,48 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                       ))}
                     </select>
                   </label>
+
                   <label className={styles.label}>
                     Tên quy trình:
-                    <select
-                      name="processName"
-                      value={this.state.processName}
-                      onChange={this._inputChange}
-                      className={styles.select}
-                      style={{ width: 'auto'}}
-                    >
-                      <option value="">Chọn tên quy trình</option>
-                      {this.state.processes.map((process, index) => (
-                        <option key={index} value={process.ProcessName}>
-                          {process.ProcessName}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={this.state.processName || "Nhấn để chọn quy trình"}  // Hiển thị giá trị processName hoặc giữ placeholder nếu chưa có
+                      readOnly
+                      onClick={this._toggleModal}
+                      style={{ width: 'auto' }}
+                    />
                   </label>
+                  <Popup
+                    show={this.state.showModal}
+                    onClose={this._toggleModal}
+                  >
+                    <h3>Chọn quy trình</h3>
+                    <Select
+                      options={processOptions}
+                      onChange={this._handleProcessSelect}
+                      placeholder="Chọn quy trình..."
+                      isSearchable
+                      value={processOptions.find(option => option.value === this.state.selectedProcessCode)} // Hiển thị giá trị theo ProcessCode đã được chọn trước đó
+                    />
+                    {this.state.processName && (
+                      <div>
+                        {this.state.processDetails.length > 0 ? (
+                          this.renderProcessDetailsTable()
+                        ) : (
+                          <p>Không có dữ liệu chi tiết cho quy trình đã chọn.</p>
+                        )}
+                      </div>
+                    )}
+                    <button 
+                      onClick={this.addComment} 
+                      className={styles.saveButton}  
+                    >
+                      Lưu
+                    </button>
+                  </Popup>
                 </div>
                 <div className={styles.row}>
-                <label className={styles.label}>
+                  <label className={styles.label}>
                     File:
                     <div className={styles.fileContainer}>
                       {this.state.files.length > 0 && (
@@ -567,9 +1003,10 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                         multiple
                         onChange={this.handleFileChange}
                         className={styles.fileInput}
+                        style={{ width: 'auto' }}
                       />
                       <div className={styles.attachmentContainer}>
-                        {this.state.files.slice(0, 4).map((file, fileIndex) => (
+                        {this.state.files.slice(0, 5).map((file, fileIndex) => (
                           <div key={fileIndex} className={styles.attachmentItem}>
                             <div className={styles.attachmentIcon}>
                               {this._renderFileIcon(file.name)}
@@ -578,14 +1015,14 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                               <a href={URL.createObjectURL(file)} target="_blank" rel="noopener noreferrer">
                                 {file.name.length > 10 ? `${file.name.slice(0, 20)}...` : file.name}
                               </a>
+                              <button
+                                type="button"
+                                className={styles.removeFileButton}
+                                onClick={() => this.removeFile(fileIndex)}
+                              >
+                                &times;
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              className={styles.removeFileButton}
-                              onClick={() => this.removeFile(fileIndex)}
-                            >
-                              &times;
-                            </button>
                           </div>
                         ))}
                       </div>
@@ -604,8 +1041,45 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                   </label>
                 </div>
               </div>
+              <div className={styles.commentContainer}>
+                {this.state.Status === 'Staff' && (
+                  <ShowCommentSuggest
+                    user={{ name: 'User Name', avatarUrl: 'path_to_avatar.png' }}
+                    comment="Đây là comment mẫu"
+                    isLoading={false} // Bạn có thể thay đổi điều kiện này tùy theo logic
+                  />
+                )}
+              </div>
             </div>
           )}
+          {this.state.Status === 'Staff' && (
+            <div className={styles.userCommentContainer}>
+              {this.state.commentApprover.length > 0 ? (
+                this.state.commentApprover.map((approver, index) => (
+                  <div key={index} className={styles.userCommentBox}>
+                    <div className={styles.userAvatar}>
+                      <img
+                        src="path_to_avatar_placeholder.png"
+                        alt={approver.label}
+                        className={styles.avatarImage}
+                      />
+                    </div>
+                    <div className={styles.userDetails}>
+                      <strong>{approver.label}</strong> {/* Display approver's name */}
+                      <p>
+                        {approver.comment ? approver.comment : 'Đang chờ nhận xét'}
+                      </p> {/* Display approver's comment or fallback message */}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>Không có người duyệt hoặc nhận xét nào.</p>
+              )}
+            </div>
+          )}
+
+
+
 
           {this.state.activeTab === 'related' && <div><h3>Tab Liên quan</h3></div>}
 
@@ -613,9 +1087,9 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
         </div>
 
         <div className={styles.footer}>
-          <FooterButton 
-            onClose={this.props.onClose} 
-            onSave={() => this.addSuggest()} 
+          <FooterButton
+            onClose={this.props.onClose}
+            onSave={() => this.addSuggest()}
             onDelete={() => this.deleteSuggest()}
           />
         </div>

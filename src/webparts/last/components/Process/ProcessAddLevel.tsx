@@ -64,7 +64,7 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
             const existingItemId = existingItems[0].Id;
             await sp.web.lists.getByTitle(listTitle).items.getById(existingItemId).update(fieldsToUpdate);
             this.setState({ itemId: existingItemId });
-            console.log(`Updated existing item with Title: ${Title}`);
+            // console.log(`Updated existing item with Title: ${Title}`);
         } else if (itemId) {
             // Nếu có itemId, cập nhật mục hiện có (dựa trên itemId)
             await sp.web.lists.getByTitle(listTitle).items.getById(itemId).update(fieldsToUpdate);
@@ -116,8 +116,6 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
         approver: item.Approver ? item.Approver.Title : "No Approver",  // Check if Approver exists
       }));
 
-      // console.log('Chi tiết Process:', processDetails);
-
       // Bạn có thể setState hoặc xử lý dữ liệu tại đây
       this.setState({ processDetails });
 
@@ -132,8 +130,6 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
     try {
         const items = await sp.web.lists.getByTitle("ProcessType").items
             .select("Title", "ProcessTypeName")();
-
-        console.log("Process Types:", items);
 
         // Lưu vào state
         this.setState({
@@ -277,7 +273,6 @@ export default class ProcessAddLevel extends React.Component<IProcessAddLevelPro
         {NumberApporver && parseInt(NumberApporver, 10) > 0 && (
           <ProcessDetail
             ref={this.processDetailRef} // Truyền ref vào component
-            formDataList={[]} // Bạn có thể cung cấp dữ liệu nếu có
             formData={{
               ProcessLevelNumber: this.state.NumberApporver,
               ProcessName: this.state.ProcessName,

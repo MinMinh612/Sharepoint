@@ -58,9 +58,9 @@
   
 }
 
-.row {
+.formGroup .row {
   display: flex;
-  justify-content: space-between;
+  justify-content: left;
   margin-bottom: 10px;
 }
 
@@ -278,7 +278,7 @@ input[type="datetime-local"] {
 .attachmentContainer {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: left;
   gap: 80px;
   margin-top: 10px;
   width: auto;
@@ -288,14 +288,14 @@ input[type="datetime-local"] {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: left;
+  justify-content: left;
   // background-color: #f8f8f8;
   padding: 5px;
   border-radius: 8px;
   width: 50px; /* Giảm kích thước */
   text-align: center;
-  margin-top: -50px;
+  margin-top: -55px;
 }
 
 .removeButton {
@@ -322,6 +322,7 @@ input[type="datetime-local"] {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-right: 20px;
 }
 
 .attachmentLink a {
@@ -368,4 +369,168 @@ input[type="datetime-local"] {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
+}
+
+
+
+.commentContainer {
+  background-color: #ddd;
+}
+
+.saveButton {
+  background-color: #0078d4;  /* Màu xanh tiêu chuẩn của Microsoft */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-top: 20px;  /* Cách một khoảng so với nội dung trên */
+}
+
+.saveButton:hover {
+  background-color: #005a9e;  /* Đổi màu khi hover */
+}
+
+
+.tableContainer {
+  margin: 20px;
+  width: 100%;
+  margin-left: auto;
+}
+
+.tableContainer h1 {
+  font-size: 18px;
+  margin: 16px 0 8px 0;
+  color: #333;
+  font-weight: bold;
+  // background-color: #ffffff;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.tableContainer table {
+  width: 100%;
+  border-collapse: collapse;
+  // background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+}
+
+.tableContainer thead {
+  background-color: #ffffff;
+  color: #333;
+  font-weight: bold;
+}
+
+.tableContainer th {
+  padding: 8px;
+  border: none;
+  font-size: 14px;
+  text-align: center;
+}
+
+.tableContainer th:last-child {
+  width: 150px; 
+}
+
+.tableContainer tbody tr:nth-child(odd) {
+  background-color: none;
+}
+
+.tableContainer tbody tr:nth-child(even) {
+  background-color: none;
+}
+
+.tableContainer td {
+  padding: 8px;
+  border-bottom: 1px solid #e6e6e6;
+  // border-left: 1px solid #beb8b8;
+  // border-right: 1px solid #beb8b8;
+  vertical-align: middle;
+  font-size: 14px;
+  text-align: center;
+}
+
+.tableContainer td input {
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  // background-color: #ffffff;
+}
+
+.tableContainer td button {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.tableContainer td button:hover {
+  opacity: 0.8;
+}
+
+.tableContainer select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: #f9f9f9; 
+  color: #333;
+  box-sizing: border-box;
+  appearance: none; /* Xóa mũi tên xuống mặc định */
+  -webkit-appearance: none; /* Xóa mũi tên trên các trình duyệt WebKit */
+  -moz-appearance: none; /* Xóa mũi tên trên Firefox */
+  cursor: default;
+}
+
+.tableContainer select:disabled {
+  background-color: #f9f9f9; 
+  color: #666;
+}
+
+
+
+
+.userCommentContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Spacing between each user box */
+  margin-top: 15px;
+}
+
+.userCommentBox {
+  display: flex;
+  align-items: center;
+  background-color: #f9f9f9;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.userAvatar {
+  flex-shrink: 0;
+  margin-right: 15px;
+}
+
+.avatarImage {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.userDetails strong {
+  font-size: 16px;
+}
+
+.userDetails p {
+  font-size: 14px;
+  color: #555;
 }

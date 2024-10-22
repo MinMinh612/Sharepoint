@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { FaFilePdf, FaFileWord, FaFileAlt } from 'react-icons/fa';
+// import { FaFilePdf, FaFileWord, FaFileAlt, FaPaperclip  } from 'react-icons/fa';
+import { FaPaperclip  } from 'react-icons/fa';
 import styles from './Suggestion.module.scss';
 
 export interface IDemoSuggestProps {
@@ -17,11 +18,12 @@ export interface DataSuggest {
   DateTime?: string; 
   Emergency?: string; 
   Note?: string;
+  ProcessName: string;
 }
 
 const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit, onSelectionChange }) => {
   const [selectedIndices, setSelectedIndices] = React.useState<number[]>([]);
-  const [showMoreFiles, setShowMoreFiles] = React.useState<boolean>(false);
+  // const [showMoreFiles, setShowMoreFiles] = React.useState<boolean>(false);
 
   const handleCheckboxChange = (index: number, isChecked: boolean): void => {
     let updatedSelectedIndices: number[];
@@ -39,18 +41,18 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
   };
 
 
-  const renderFileIcon = (fileName: string): JSX.Element => {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf':
-        return <FaFilePdf color="red" />;
-      case 'doc':
-      case 'docx':
-        return <FaFileWord color="blue" />;
-      default:
-        return <FaFileAlt />;
-    }
-  };
+  // const renderFileIcon = (fileName: string): JSX.Element => {
+  //   const extension = fileName.split('.').pop()?.toLowerCase();
+  //   switch (extension) {
+  //     case 'pdf':
+  //       return <FaFilePdf color="red" />;
+  //     case 'doc':
+  //     case 'docx':
+  //       return <FaFileWord color="blue" />;
+  //     default:
+  //       return <FaFileAlt />;
+  //   }
+  // };
 
   return (
     <div className={styles.formContainer}>
@@ -60,12 +62,12 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
             <thead>
               <tr>
                 <th style={{ width: '50px' }}>Select</th>
-                <th style={{ width: '200px' }}>Nội dung 16</th>
+                <th style={{ width: '300px', textAlign: 'left' }}>Nội dung</th>
                 {/* <th style={{ width: '150px' }}>Kế hoạch</th> 
                 <th style={{ width: '200px' }}>Ngày</th> 
                 <th style={{ width: '150px' }}>Khẩn cấp</th> 
                 <th style={{ width: '300px' }}>Ghi chú</th>  */}
-                <th style={{ width: '300px' }}>Tài liệu</th>
+                <th style={{ width: '100px' }}>Tài liệu</th>
               </tr>
             </thead>
             <tbody>
@@ -80,7 +82,7 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
                     />
                   </td>
                   <td>
-                    <input type="text" value={suggestion.Title} readOnly />
+                    <input type="text" value={suggestion.Title} readOnly style={{ textAlign: 'left' }}/>
                   </td>
                   {/* <td>
                     <input type="text" value={suggestion.Plan} readOnly /> 
@@ -96,39 +98,13 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
                   </td> */}
                   <td>
                     <div className={styles.attachmentContainer}>
-                      {suggestion.Attachments?.slice(0, 3).map((file, fileIndex) => (
+                      {suggestion.Attachments?.slice(0, 1).map((file, fileIndex) => (
                         <div key={fileIndex} className={styles.attachmentItem}>
-                          <div className={styles.attachmentIcon}>
-                            {renderFileIcon(file.FileName)}
-                          </div>
-                          <div className={styles.attachmentLink}>
-                            <a href={file.Url} target="_blank" rel="noopener noreferrer">
-                              {file.FileName}
-                            </a>
-                          </div>
+                            <div>
+                              <FaPaperclip />
+                            </div>
                         </div>
                       ))}
-                      {suggestion.Attachments && suggestion.Attachments.length > 3 && (
-                        <button className={styles.showMoreButton} onClick={() => setShowMoreFiles(true)}>
-                          Hiển thị thêm
-                        </button>
-                      )}
-                      {showMoreFiles && (
-                        <div className={styles.additionalFiles}>
-                          {suggestion.Attachments?.slice(3).map((file, fileIndex) => (
-                            <div key={fileIndex} className={styles.attachmentItem}>
-                              <div className={styles.attachmentIcon}>
-                                {renderFileIcon(file.FileName)}
-                              </div>
-                              <div className={styles.attachmentLink}>
-                                <a href={file.Url} target="_blank" rel="noopener noreferrer">
-                                  {file.FileName}
-                                </a>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </td>
                 </tr>

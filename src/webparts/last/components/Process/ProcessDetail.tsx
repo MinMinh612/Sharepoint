@@ -10,10 +10,9 @@ import { MultiValue } from 'react-select';
 import { spfi, SPFx } from '@pnp/sp';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ISiteUserInfo } from '@pnp/sp/site-users';
-import {IProcessItem, IProcessData } from './IProcessData';
+import {IProcessItem } from './IProcessData';
 
 interface IProcessDetailProps {
-  formDataList: IProcessData[];
   formData: {
     ProcessLevelNumber: string;
     ProcessName: string;
@@ -112,12 +111,10 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
           return acc;
         }, {});
   
-        console.log("Dữ liệu đã tải từ SharePoint:", newApprovers); // Kiểm tra dữ liệu approvers
-  
         // Cập nhật trạng thái mới của các chi tiết quy trình và người duyệt
         this.setState({ processDetails, approvers: newApprovers });
       } else {
-        console.log("Không tìm thấy dữ liệu khớp với tiêu đề");
+        // console.log("Không tìm thấy dữ liệu khớp với tiêu đề");
         this.setState({ processDetails: [], approvers: {} });
       }
     } catch (error) {
@@ -125,8 +122,6 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
     }
   };
   
-
-
   public addProcessDetail = async (): Promise<void> => {
     const { formData } = this.props;
     const sp = spfi().using(SPFx(this.props.context));
@@ -162,7 +157,6 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
                 // Kiểm tra và cập nhật dòng tham mưu
                 const existingAdvisorItem = existingItems.find(item => item.NumberOfApproval === `Tham mưu cấp ${level}`);
                 if (existingAdvisorItem) {
-                    console.log(`Updating existing advisor item for level ${level}, item ID: ${existingAdvisorItem.Id}`);
                     await sp.web.lists.getByTitle("ProcessDetail").items.getById(existingAdvisorItem.Id).update({
                         ApproverId: advisorData // Mảng người tham mưu
                     });
@@ -174,6 +168,9 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
                         ApproverId: advisorData // Mảng người tham mưu
                     });
                 }
+
+                console.log('advisorData trong ProcessDetail',advisorData)
+                console.log('approverData trong ProcessDetail',approverData)
 
                 // Kiểm tra và cập nhật dòng cấp duyệt chính
                 const existingApproverItem = existingItems.find(item => item.NumberOfApproval === `${level}`);
@@ -196,10 +193,7 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
     } catch (error) {
         console.error('Error adding or updating item:', error);
     }
-};
-
-
-
+  };
 
 
   async componentDidUpdate(prevProps: IProcessDetailProps): Promise<void> {
@@ -303,10 +297,6 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
         ]))
         .reduce((acc, val) => acc.concat(val), []); // Thay thế flatMap bằng map rồi reduce
   };
-
-
-  
-
 
   public render(): React.ReactElement {    
     return (

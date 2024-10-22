@@ -28,6 +28,7 @@ interface ISuggestState {
 export interface dataSuggest {
   Id: number;
   Title: string;
+  ProcessName: string;
   Attachments?: { FileName: string; Url: string }[]; // khai báo thêm Url để link trực tiếp file 
 }
 
@@ -63,8 +64,8 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
 
     try {
         const items = await sp.web.lists.getByTitle(listTitle).items
-            .select('Id', 'Title', 'Plan', 'DateTime', 'Emergency', 'Note', 'Status') // Include the Status field
-            .filter("Status eq 'Staff' or Status eq 'Draft'") // Add the filter condition
+            .select('Id', 'Title', 'Plan', 'DateTime', 'Emergency', 'ProcessName', 'Note', 'Status') // Include ProcessName
+            .filter("Status eq 'Staff' or Status eq 'Draft'") // Filter condition
             .expand('AttachmentFiles')(); 
 
         const suggestions: dataSuggest[] = await Promise.all(items.map(async (item: { 
@@ -75,6 +76,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
             Emergency: string; 
             Note: string; 
             Status: string;
+            ProcessName?: string;  // Optional ProcessName
         }) => {
             const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
 
@@ -92,6 +94,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
                 DateTime: item.DateTime,
                 Emergency: item.Emergency,
                 Note: item.Note,
+                ProcessName: item.ProcessName || '',  // Add ProcessName to result, or use empty string if undefined
                 Attachments: attachmentLinks
             };
         }));
@@ -101,7 +104,8 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
     } catch (error) {
         alert('Error retrieving data: ' + error.message);
     }
-}
+  }
+
 
   private deleteSuggest = async (): Promise<void> => {
     const { selectedSuggestions, suggestions } = this.state;

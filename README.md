@@ -84,5 +84,6 @@ set NODE_OPTIONS="--max-old-space-size=4096"
 
 gulp serve --max_old_space_size=4096
 
+gulp trust-dev-cert; gulp clean; gulp build; gulp serve --max_old_space_size=4096
 
-
+npx kill-port 4321
