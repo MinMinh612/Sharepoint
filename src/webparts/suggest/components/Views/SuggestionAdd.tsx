@@ -658,138 +658,183 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     }
   };
 
-  // Hàm để xóa comment dựa trên Title và ProcessTitle khác
-  private async deleteComment(itemId: string): Promise<void> {
-    const listTitle = 'Comment';
-    const sp = spfi().using(SPFx(this.props.context));
-    const { commentData } = this.state;
+ // Function to delete all comments related to the itemId and process titles with retry logic
+private async deleteComment(itemId: string): Promise<void> {
+  const listTitle = 'Comment';
+  const sp = spfi().using(SPFx(this.props.context));
+  const { commentData } = this.state;
 
-    // Lọc tất cả các bình luận có Title trùng với itemId
-    const commentsToDelete = commentData.filter(comment => comment.Title === itemId);
+  const commentsToDelete = commentData.filter(comment => comment.Title === itemId);
+  console.log(`Deleting ${commentsToDelete.length} comments with Title: ${itemId}`);
 
-    console.log(`Deleting ${commentsToDelete.length} comments with Title: ${itemId}`);
+  for (const comment of commentsToDelete) {
+      let retries = 3;  // Retry mechanism in case of intermittent failures
+      while (retries > 0) {
+          try {
+              console.log('Attempting to delete comment with ID:', comment.Id);
+              await sp.web.lists.getByTitle(listTitle).items.getById(comment.Id).delete();
+              console.log('Deleted comment with ID:', comment.Id);
+              break;
+          } catch (error) {
+              console.error(`Error deleting comment with ID ${comment.Id}. Retries left: ${retries - 1}`, error);
+              retries--;
+              if (retries === 0) {
+                  console.error('Failed to delete comment after multiple attempts:', comment.Id);
+              }
+          }
+      }
+  }
 
-    for (const comment of commentsToDelete) {
-        try {
-            // Thực hiện xóa từng bình luận
-            console.log('Attempting to delete comment with ID:', comment.Id);
-            await sp.web.lists.getByTitle(listTitle).items.getById(comment.Id).delete();
-            console.log('Deleted comment with ID:', comment.Id);
-        } catch (error) {
-            console.error('Error deleting comment with ID', comment.Id, error);
-        }
-    }
-
-    // Cập nhật lại state sau khi xóa
-    const updatedCommentData = commentData.filter(comment => comment.Title !== itemId);
-    this.setState({ commentData: updatedCommentData });
-    console.log('Updated commentData after delete:', updatedCommentData);
+  // Update state to clear out deleted comments locally
+  const updatedCommentData = commentData.filter(comment => comment.Title !== itemId);
+  this.setState({ commentData: updatedCommentData });
+  console.log('Updated commentData after delete:', updatedCommentData);
 }
 
-  private async addComment(): Promise<void> {
-    const { itemId, description, selectedProcessCode, processDetails, commentApprover, commentData } = this.state;
+// Function to add new comments after clearing out old ones
+private async addComment(): Promise<void> {
+  const { itemId, description, selectedProcessCode, processDetails, commentApprover, commentData } = this.state;
 
-    if (!itemId) {
+  if (!itemId) {
       throw new Error('Item ID is missing');
-    }
+  }
 
-    if (!selectedProcessCode || selectedProcessCode.trim() === '') {
+  if (!selectedProcessCode || selectedProcessCode.trim() === '') {
       throw new Error('Process code is missing or empty');
-    }
+  }
 
-    const listTitle = 'Comment';
-    const sp = spfi().using(SPFx(this.props.context));
+  const listTitle = 'Comment';
+  const sp = spfi().using(SPFx(this.props.context));
 
-    try {
+  try {
       await this.getComment();
 
       if (processDetails.length === 0) {
-        throw new Error('No process details found');
+          throw new Error('No process details found');
       }
 
+      // Delete all existing comments for this item before adding new ones
       await this.deleteComment(itemId.toString());
-      console.log('Updated existing comments with Title:', itemId);
+      console.log('Cleared all existing comments for item ID:', itemId);
 
       for (const detail of processDetails) {
-        const { title, numberOfApproval } = detail;
+          const { title, numberOfApproval } = detail;
 
-        if (!description || !title || !numberOfApproval) {
-          throw new Error("One or more fields are missing or empty.");
-        }
-
-
-        // Lọc người phê duyệt liên quan đến quy trình hiện tại
-        const relatedApprovers = commentApprover.filter(
-          approver =>
-            approver.processTitle === title &&
-            approver.numberOfApproval === numberOfApproval &&
-            approver.value
-        );
-
-        if (relatedApprovers.length === 0) {
-          // Chỉ thêm bình luận chính khi `relatedApprovers` rỗng
-
-          const fieldsToAdd: IFieldsToAddComment = {
-            Title: itemId.toString(),
-            SuggestName: description,
-            ProcessTitle: title,
-            ProcessNumberOfApprover: numberOfApproval,
-          };
-
-          const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
-
-          let addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
-          if (!addedItemId) {
-            addedItemId = addItemResult?.data?.id || addItemResult?.data?.odata.id;
+          if (!description || !title || !numberOfApproval) {
+              throw new Error("One or more fields are missing or empty.");
           }
 
-          if (!addedItemId) {
-            console.error('Failed to retrieve the added item ID from addItemResult:', addItemResult);
-            throw new Error('Failed to retrieve the added item ID');
+          // Filter approvers related to the current process level
+          const relatedApprovers = commentApprover.filter(
+              approver =>
+                  approver.processTitle === title &&
+                  approver.numberOfApproval === numberOfApproval &&
+                  approver.value
+          );
+
+          // Determine if this level is restricted to a single approver
+          const isNumericLevel = /^\d+$/.test(numberOfApproval);
+
+          if (isNumericLevel) {
+              // For levels 1, 2, 3, etc., ensure exactly one approver
+              if (relatedApprovers.length !== 1) {
+                  alert(`Cấp duyệt ${numberOfApproval} yêu cầu chính xác một người duyệt.`);
+                  continue;
+              }
+          } else {
+              // For "Tham mưu" levels, show a warning if there are no approvers
+              if (relatedApprovers.length === 0) {
+                  const confirmSave = window.confirm(`Cấp tham mưu ${numberOfApproval} đang rỗng. Bạn có muốn lưu dữ liệu không?`);
+                  if (!confirmSave) {
+                      continue; // Skip saving for this level if the user chooses not to save
+                  }
+              }
           }
 
-          console.log('Main comment added successfully with ID:', addedItemId);
-
-          commentData.push({
-            Id: addedItemId,
-            Title: itemId.toString(),
-            SuggestName: description,
-            ProcessTitle: title,
-            ProcessNumberOfApprover: numberOfApproval,
-            ProcessApprover: [],
-          });
-          this.setState({ commentData });
-          console.log('Updated commentData after adding main comment:', this.state.commentData);
-        } else {
-          // Nếu `relatedApprovers` không rỗng, bỏ qua bình luận chính và chỉ thêm từng user
-          console.log('Adding individual approvers for title:', title, 'and numberOfApproval:', numberOfApproval);
-          try {
-            for (const approver of relatedApprovers) {
-              const oneUser = { Id: approver.value };
-              console.log('Adding user with ID:', oneUser.Id);
-
-              const fieldsToAddForUser = {
-                Title: itemId.toString(),
-                SuggestName: description,
-                ProcessTitle: title,
-                ProcessNumberOfApprover: numberOfApproval,
-                ProcessApproverId: [oneUser.Id],
+          if (relatedApprovers.length === 0) {
+              // Add main comment when `relatedApprovers` is empty
+              const fieldsToAdd: IFieldsToAddComment = {
+                  Title: itemId.toString(),
+                  SuggestName: description,
+                  ProcessTitle: title,
+                  ProcessNumberOfApprover: numberOfApproval,
               };
 
-              await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAddForUser);
-              console.log('Approver added successfully with new item for user ID:', oneUser.Id);
-            }
-          } catch (error) {
-            console.error('Error adding individual approvers to comment for title:', title, error);
+              const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
+
+              let addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
+              if (!addedItemId) {
+                  addedItemId = addItemResult?.data?.id || addItemResult?.data?.odata.id;
+              }
+
+              if (!addedItemId) {
+                  console.error('Failed to retrieve the added item ID from addItemResult:', addItemResult);
+                  throw new Error('Failed to retrieve the added item ID');
+              }
+
+              console.log('Main comment added successfully with ID:', addedItemId);
+
+              commentData.push({
+                  Id: addedItemId,
+                  Title: itemId.toString(),
+                  SuggestName: description,
+                  ProcessTitle: title,
+                  ProcessNumberOfApprover: numberOfApproval,
+                  ProcessApprover: [],
+              });
+              this.setState({ commentData });
+              console.log('Updated commentData after adding main comment:', this.state.commentData);
+          } else {
+              // Add each approver individually if `relatedApprovers` is not empty
+              console.log('Adding individual approvers for title:', title, 'and numberOfApproval:', numberOfApproval);
+
+              for (const approver of relatedApprovers) {
+                  const oneUser = { Id: approver.value };
+                  console.log('Adding user with ID:', oneUser.Id);
+
+                  const fieldsToAddForUser = {
+                      Title: itemId.toString(),
+                      SuggestName: description,
+                      ProcessTitle: title,
+                      ProcessNumberOfApprover: numberOfApproval,
+                      ProcessApproverId: [oneUser.Id],
+                  };
+
+                  await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAddForUser);
+                  console.log('Approver added successfully with new item for user ID:', oneUser.Id);
+              }
           }
-        }
       }
 
       console.log('All comments and process details added or updated successfully!');
-    } catch (error) {
+      this.showSuccessNotification("Thêm thành công!"); // Show success notification
+  } catch (error) {
       console.error('Error during addComment execution:', error);
-    }
   }
+}
+
+// Function to show a non-intrusive success notification
+private showSuccessNotification(message: string): void {
+  // Display a toast notification or add any UI element for feedback
+  const notificationElement = document.createElement("div");
+  notificationElement.innerText = message;
+  notificationElement.style.position = "fixed";
+  notificationElement.style.bottom = "20px";
+  notificationElement.style.right = "20px";
+  notificationElement.style.backgroundColor = "green";
+  notificationElement.style.color = "white";
+  notificationElement.style.padding = "10px";
+  notificationElement.style.borderRadius = "5px";
+  notificationElement.style.zIndex = "1000";
+  document.body.appendChild(notificationElement);
+
+  // Remove the notification after 3 seconds
+  setTimeout(() => {
+      document.body.removeChild(notificationElement);
+  }, 3000);
+}
+
+
 
   //Dùng cho hàm addComment đừng xóa
   public async getComment(): Promise<void> {
