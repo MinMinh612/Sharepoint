@@ -1,5 +1,3 @@
-//Thêm được dữ liệu với user rỗng
-
 import * as React from 'react';
 import styles from './SuggestionAdd.module.scss';
 import FooterButton from './FooterButton';
@@ -10,7 +8,7 @@ import "@pnp/sp/webs";
 import "@pnp/sp/lists";
 import "@pnp/sp/items";
 import '@pnp/sp/attachments';
-import '@pnp/sp/site-users/web'; 
+import '@pnp/sp/site-users/web';
 import Select from 'react-select'
 import { FaFileAlt, FaFileWord, FaFilePdf, FaDownload } from 'react-icons/fa';
 import { DataSuggest } from './DemoSuggest'
@@ -20,12 +18,11 @@ import { IProcessItem } from '../../../last/components/Process/IProcessData';
 import { ISiteUserInfo } from '@pnp/sp/site-users';
 import ShowCommentSuggest from '../../../../Components/ShowCommentSuggest';
 
-
-
 interface ISuggestionAddProps {
   onClose: () => void;
   context: WebPartContext;
   suggestionToEdit?: DataSuggest;
+  commentToEdit?: IComment[];
 }
 
 
@@ -54,7 +51,8 @@ interface ISuggestionAddState {
   itemProcessDetail: [];
   selectedUsers: IUserOption[]; // Test thêm user
   users: { value: number; label: string }[]; //test
-	commentData: IComment[];
+  commentData: IComment[];
+  commentToEdit?: IComment[];
 }
 
 interface FieldsToAdd {
@@ -77,7 +75,7 @@ interface IFieldsToAddComment {
 
 interface IUserOption { //test thêm user
   label: string;
-  value: number; 
+  value: number;
 }
 
 // interface IApprover {
@@ -94,6 +92,7 @@ interface IApproverComment {
 }
 
 interface IComment {
+  Id: number;
   Title: string;
   SuggestName: string;
   ProcessTitle: string;
@@ -131,6 +130,7 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       selectedUsers: [], //Test thêm user
       users: [],
       commentData: [],
+      commentToEdit: props.commentToEdit || [],
     };
     this.addComment = this.addComment.bind(this);
     this._inputChange = this._inputChange.bind(this);
@@ -353,6 +353,20 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     }
   }
 
+  public getUsers = async (): Promise<void> => {
+    const sp = spfi().using(SPFx(this.props.context));
+    try {
+      const groupUsers: ISiteUserInfo[] = await sp.web.siteUsers.filter("IsSiteAdmin eq false")();
+      const userList = groupUsers.map((user: ISiteUserInfo) => ({
+        value: user.Id,   // Đổi từ 'id' thành 'value' để phù hợp với yêu cầu của Select
+        label: user.Title, // Đổi từ 'title' thành 'label'
+      }));
+
+      this.setState({ users: userList });
+    } catch (error) {
+      console.error('Error fetching users from site:', error);
+    }
+  };
 
   // Auto save của các feild (k có file)
   private _inputChange = async (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): Promise<void> => {
@@ -588,264 +602,337 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
   public getProcessDetail = async (): Promise<void> => {
     const sp = spfi().using(SPFx(this.props.context));
-  
+
     try {
-        if (!this.state.selectedProcessCode || this.state.selectedProcessCode.trim() === '') {
-            console.error('Process code is missing or empty');
-            return;
-        }
-  
-        const items = await sp.web.lists.getByTitle("ProcessDetail").items
-            .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
-            .expand("Approver")();
-  
-        // Filter by selectedProcessCode and map the approver IDs to the state
-        const filteredItems = items.filter((item: IProcessItem) =>
-            item?.Title?.trim().toLowerCase() === this.state.selectedProcessCode?.trim().toLowerCase()
+      if (!this.state.selectedProcessCode || this.state.selectedProcessCode.trim() === '') {
+        console.error('Process code is missing or empty');
+        return;
+      }
+
+      const items = await sp.web.lists.getByTitle("ProcessDetail").items
+        .select("Title", "NumberOfApproval", "Approver/Id", "Approver/Title")
+        .expand("Approver")();
+
+      // Filter by selectedProcessCode and map the approver IDs to the state
+      const filteredItems = items.filter((item: IProcessItem) =>
+        item?.Title?.trim().toLowerCase() === this.state.selectedProcessCode?.trim().toLowerCase()
+      );
+
+      if (filteredItems.length > 0) {
+        const processDetails = filteredItems.map((item: IProcessItem) => ({
+          title: item?.Title ?? '',
+          numberOfApproval: item?.NumberOfApproval ?? '',
+          approver: Array.isArray(item?.Approver)
+            ? item.Approver.map((user: ISiteUserInfo) => user?.Id.toString()) // Store approver IDs
+            : item?.Approver ? [item.Approver.Id.toString()] : [],
+        }));
+
+        const allApprovers = filteredItems.flatMap((item: IProcessItem) =>
+          Array.isArray(item?.Approver)
+            ? item.Approver.map((user: ISiteUserInfo) => ({
+              processTitle: item.Title,
+              numberOfApproval: item.NumberOfApproval,
+              value: user?.Id.toString(),
+              label: user?.Title
+            }))
+            : item?.Approver ? [{
+              processTitle: item.Title,
+              numberOfApproval: item.NumberOfApproval,
+              value: item.Approver.Id.toString(),
+              label: item.Approver.Title
+            }] : []
         );
-  
-        if (filteredItems.length > 0) {
-            const processDetails = filteredItems.map((item: IProcessItem) => ({
-                title: item?.Title ?? '',
-                numberOfApproval: item?.NumberOfApproval ?? '',
-                approver: Array.isArray(item?.Approver)
-                    ? item.Approver.map((user: ISiteUserInfo) => user?.Id.toString()) // Store approver IDs
-                    : item?.Approver ? [item.Approver.Id.toString()] : [],
-            }));
-  
-            const allApprovers = filteredItems.flatMap((item: IProcessItem) =>
-                Array.isArray(item?.Approver)
-                    ? item.Approver.map((user: ISiteUserInfo) => ({
-                        processTitle: item.Title, 
-                        numberOfApproval: item.NumberOfApproval, 
-                        value: user?.Id.toString(),
-                        label: user?.Title
-                    }))
-                    : item?.Approver ? [{
-                        processTitle: item.Title, 
-                        numberOfApproval: item.NumberOfApproval, 
-                        value: item.Approver.Id.toString(), 
-                        label: item.Approver.Title
-                    }] : []
-            );
-  
-            console.log('Processed approvers:', allApprovers);
-  
-            this.setState({ 
-                processDetails: processDetails,
-                commentApprover: allApprovers,
-            });
-        } else {
-            console.log("Không tìm thấy dữ liệu khớp với ProcessCode");
-            this.setState({ processDetails: [], commentApprover: [] });
-        }
+
+        console.log('Processed approvers:', allApprovers);
+
+        this.setState({
+          processDetails: processDetails,
+          commentApprover: allApprovers,
+        });
+      } else {
+        console.log("Không tìm thấy dữ liệu khớp với ProcessCode");
+        this.setState({ processDetails: [], commentApprover: [] });
+      }
     } catch (error) {
-        console.error('Lỗi khi tải chi tiết quy trình:', error);
+      console.error('Lỗi khi tải chi tiết quy trình:', error);
     }
   };
-  
-  
+
+  // Hàm để xóa comment dựa trên Title và ProcessTitle khác
+  private async deleteComment(itemId: string): Promise<void> {
+    const listTitle = 'Comment';
+    const sp = spfi().using(SPFx(this.props.context));
+    const { commentData } = this.state;
+
+    // Lọc tất cả các bình luận có Title trùng với itemId
+    const commentsToDelete = commentData.filter(comment => comment.Title === itemId);
+
+    console.log(`Deleting ${commentsToDelete.length} comments with Title: ${itemId}`);
+
+    for (const comment of commentsToDelete) {
+        try {
+            // Thực hiện xóa từng bình luận
+            console.log('Attempting to delete comment with ID:', comment.Id);
+            await sp.web.lists.getByTitle(listTitle).items.getById(comment.Id).delete();
+            console.log('Deleted comment with ID:', comment.Id);
+        } catch (error) {
+            console.error('Error deleting comment with ID', comment.Id, error);
+        }
+    }
+
+    // Cập nhật lại state sau khi xóa
+    const updatedCommentData = commentData.filter(comment => comment.Title !== itemId);
+    this.setState({ commentData: updatedCommentData });
+    console.log('Updated commentData after delete:', updatedCommentData);
+}
 
   private async addComment(): Promise<void> {
-    const { itemId, description, selectedProcessCode, processDetails, commentApprover } = this.state;
+    const { itemId, description, selectedProcessCode, processDetails, commentApprover, commentData } = this.state;
 
     if (!itemId) {
-        throw new Error('Item ID is missing');
+      throw new Error('Item ID is missing');
     }
 
     if (!selectedProcessCode || selectedProcessCode.trim() === '') {
-        throw new Error('Process code is missing or empty');
+      throw new Error('Process code is missing or empty');
     }
 
-    const listTitle = 'Comment'; // Tên list Comment
+    const listTitle = 'Comment';
     const sp = spfi().using(SPFx(this.props.context));
 
     try {
-        if (processDetails.length === 0) {
-            throw new Error('No process details found');
+      await this.getComment();
+
+      if (processDetails.length === 0) {
+        throw new Error('No process details found');
+      }
+
+      await this.deleteComment(itemId.toString());
+      console.log('Updated existing comments with Title:', itemId);
+
+      for (const detail of processDetails) {
+        const { title, numberOfApproval } = detail;
+
+        if (!description || !title || !numberOfApproval) {
+          throw new Error("One or more fields are missing or empty.");
         }
 
-        // Loop over each process detail to add comments
-        for (const detail of processDetails) {
-            console.log('Processing detail:', detail);
-            const { title, numberOfApproval } = detail;
 
-            if (!description || !title || !numberOfApproval) {
-                throw new Error("One or more fields are missing or empty.");
-            }
+        // Lọc người phê duyệt liên quan đến quy trình hiện tại
+        const relatedApprovers = commentApprover.filter(
+          approver =>
+            approver.processTitle === title &&
+            approver.numberOfApproval === numberOfApproval &&
+            approver.value
+        );
 
-            const fieldsToAdd: IFieldsToAddComment = {
+        if (relatedApprovers.length === 0) {
+          // Chỉ thêm bình luận chính khi `relatedApprovers` rỗng
+
+          const fieldsToAdd: IFieldsToAddComment = {
+            Title: itemId.toString(),
+            SuggestName: description,
+            ProcessTitle: title,
+            ProcessNumberOfApprover: numberOfApproval,
+          };
+
+          const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
+
+          let addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
+          if (!addedItemId) {
+            addedItemId = addItemResult?.data?.id || addItemResult?.data?.odata.id;
+          }
+
+          if (!addedItemId) {
+            console.error('Failed to retrieve the added item ID from addItemResult:', addItemResult);
+            throw new Error('Failed to retrieve the added item ID');
+          }
+
+          console.log('Main comment added successfully with ID:', addedItemId);
+
+          commentData.push({
+            Id: addedItemId,
+            Title: itemId.toString(),
+            SuggestName: description,
+            ProcessTitle: title,
+            ProcessNumberOfApprover: numberOfApproval,
+            ProcessApprover: [],
+          });
+          this.setState({ commentData });
+          console.log('Updated commentData after adding main comment:', this.state.commentData);
+        } else {
+          // Nếu `relatedApprovers` không rỗng, bỏ qua bình luận chính và chỉ thêm từng user
+          console.log('Adding individual approvers for title:', title, 'and numberOfApproval:', numberOfApproval);
+          try {
+            for (const approver of relatedApprovers) {
+              const oneUser = { Id: approver.value };
+              console.log('Adding user with ID:', oneUser.Id);
+
+              const fieldsToAddForUser = {
                 Title: itemId.toString(),
                 SuggestName: description,
                 ProcessTitle: title,
                 ProcessNumberOfApprover: numberOfApproval,
-            };
+                ProcessApproverId: [oneUser.Id],
+              };
 
-            console.log('Fields to add (without approver):', fieldsToAdd);
-
-            // Add the basic fields (without approvers) to the SharePoint list
-            const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
-            console.log('Add item result:', addItemResult);
-
-            // Retrieve the newly added item ID
-            const addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
-            console.log('Added item ID:', addedItemId);
-
-            if (!addedItemId) {
-                throw new Error('Failed to retrieve the added item ID');
+              await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAddForUser);
+              console.log('Approver added successfully with new item for user ID:', oneUser.Id);
             }
-
-            // Filter approvers related to the current process detail (based on title and numberOfApproval)
-            const relatedApprovers = commentApprover.filter(
-                approver => approver.processTitle === title && approver.numberOfApproval === numberOfApproval
-            );
-            console.log('Related approvers for process detail:', relatedApprovers);
-
-            if (relatedApprovers.length > 0) {
-                const userIds = relatedApprovers.map((user: IApproverComment) => ({ Id: user.value }));
-                console.log('User IDs to add (formatted):', userIds);
-
-                // Update the ProcessApprover field for the added comment
-                const updateItemResult = await sp.web.lists.getByTitle(listTitle).items.getById(addedItemId).update({
-                    ProcessApproverId: userIds.map(user => user.Id),
-                });
-
-                console.log('Users added to ProcessApprover:', updateItemResult);
-            } else {
-                console.log('No users selected for this process detail, skipping approver update.');
-            }
+          } catch (error) {
+            console.error('Error adding individual approvers to comment for title:', title, error);
+          }
         }
+      }
 
-        console.log('All comments and process details added successfully!');
+      console.log('All comments and process details added or updated successfully!');
     } catch (error) {
-        console.error('Error during addComment execution:', error);
+      console.error('Error during addComment execution:', error);
     }
   }
 
-public getUsers = async (): Promise<void> => {
-  const sp = spfi().using(SPFx(this.props.context));
-  try {
-    const groupUsers: ISiteUserInfo[] = await sp.web.siteUsers.filter("IsSiteAdmin eq false")();
-    const userList = groupUsers.map((user: ISiteUserInfo) => ({
-      value: user.Id,   // Đổi từ 'id' thành 'value' để phù hợp với yêu cầu của Select
-      label: user.Title, // Đổi từ 'title' thành 'label'
+  //Dùng cho hàm addComment đừng xóa
+  public async getComment(): Promise<void> {
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+      const commentItems = await sp.web.lists.getByTitle('Comment').items
+        .select('Id', 'Title', 'SuggestName', 'ProcessTitle', 'ProcessNumberOfApprover', 'ProcessApprover/Title')
+        .expand('ProcessApprover')();
+
+
+      if (commentItems.length > 0) {
+        const commentData = commentItems.map(item => ({
+          Id: item.Id, // Map the Id property
+          Title: item.Title,
+          SuggestName: item.SuggestName,
+          ProcessTitle: item.ProcessTitle,
+          ProcessNumberOfApprover: item.ProcessNumberOfApprover,
+          ProcessApprover: item.ProcessApprover.map((approver: { Title: string }) => ({ Title: approver.Title })), // Map to array of approver titles
+        }));
+
+        // Update the state with the fetched process details
+        this.setState({ commentData });
+      } else {
+        console.log("No comments found in the Comment list.");
+      }
+    } catch (error) {
+      console.error("Error details:", error.message);
+    }
+  }
+
+  //Chưa tìm được lỗi tại sao code không đổi mà lúc nào cũng mặc định là nhận ProcessDetail
+  renderProcessDetailsTable = (): JSX.Element => {
+    const { users, processDetails, commentToEdit } = this.state;
+
+    // Convert user ID to name for displaying in the select dropdown
+    const userOptions = users.map((user) => ({
+        value: user.value.toString(),
+        label: user.label,
     }));
 
-    this.setState({ users: userList });
-  } catch (error) {
-    console.error('Error fetching users from site:', error);
-  }
+    // Check if `commentToEdit` exists and has data
+    const itemId = this.props.suggestionToEdit?.Id?.toString();
+    const filteredCommentData = commentToEdit
+        ? commentToEdit.filter((comment: IComment) => comment.Title === itemId)
+        : [];
+
+    return (
+        <form className={styles.tableContainer}>
+            <table className="table">
+                <thead className="thead">
+                    <tr>
+                        <th style={{ width: '200px' }}>Mã quy trình</th>
+                        <th style={{ width: '100px' }}>Cấp duyệt</th>
+                        <th style={{ width: 'auto' }}>Người duyệt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filteredCommentData.length > 0 ? (
+                        // Display `filteredCommentData` with edit capability
+                        filteredCommentData.map((comment: IComment, index: number) => (
+                            <tr key={`comment-${index}`}>
+                                <td>{comment.ProcessTitle}</td>
+                                <td>{comment.ProcessNumberOfApprover}</td>
+                                <td>
+                                    <Select
+                                        isMulti
+                                        name={`Approver_${index}`}
+                                        value={userOptions.filter(option =>
+                                            comment.ProcessApprover.some((approver: { Title: string }) => approver.Title === option.label)
+                                        )}
+                                        options={userOptions}
+                                        onChange={(selectedOptions) => {
+                                            // Update commentToEdit in state
+                                            this.setState((prevState) => {
+                                                const updatedComments = (prevState.commentToEdit || []).map((comm: IComment, i: number) => {
+                                                    if (i === index) {
+                                                        return {
+                                                            ...comm,
+                                                            ProcessApprover: selectedOptions?.map(option => ({ Title: option.label })) || []
+                                                        };
+                                                    }
+                                                    return comm;
+                                                });
+
+                                                return {
+                                                    commentToEdit: updatedComments,
+                                                };
+                                            });
+                                        }}
+                                        placeholder="Chọn người duyệt"
+                                    />
+                                </td>
+                            </tr>
+                        ))
+                    ) : (
+                        processDetails.map((detail, index) => (
+                            <tr key={index}>
+                                <td>{detail.title}</td>
+                                <td>{detail.numberOfApproval}</td>
+                                <td>
+                                    <Select
+                                        isMulti
+                                        name={`Approver_${index}`}
+                                        value={userOptions.filter(option =>
+                                            (detail.approver || []).includes(option.value)
+                                        )}
+                                        options={userOptions}
+                                        onChange={(selectedOptions) => {
+                                            const selectedIds = selectedOptions ? selectedOptions.map(option => option.value) : [];
+                                            this.setState((prevState) => {
+                                                const updatedProcessDetails = prevState.processDetails.map((item, i) =>
+                                                    i === index ? { ...item, approver: selectedIds } : item
+                                                );
+
+                                                const updatedCommentApprover = prevState.commentApprover.filter(
+                                                    (item) => item.processTitle !== detail.title || item.numberOfApproval !== detail.numberOfApproval
+                                                );
+
+                                                const newApprovers = selectedOptions.map((user) => ({
+                                                    processTitle: detail.title,
+                                                    numberOfApproval: detail.numberOfApproval,
+                                                    value: user.value,
+                                                    label: user.label,
+                                                }));
+
+                                                return {
+                                                    processDetails: updatedProcessDetails,
+                                                    commentApprover: [...updatedCommentApprover, ...newApprovers],
+                                                };
+                                            });
+                                        }}
+                                        placeholder="Chọn người duyệt"
+                                    />
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </form>
+    );
 };
-
-
-public async getComment(): Promise<void> {
-  const sp = spfi().using(SPFx(this.props.context)); 
-  
-  try {
-    // Fetch the items from the "Comment" list
-    const commentItems = await sp.web.lists.getByTitle('Comment').items
-      .select('Title', 'SuggestName', 'ProcessTitle', 'ProcessNumberOfApprover', 'ProcessApprover/Title')
-      .expand('ProcessApprover') // To expand and get the user details
-      .filter(`Title eq '${this.props.suggestionToEdit?.Id}'`) // Filter by the current item ID
-      ();
-
-    console.log("Fetched comment items:", commentItems);
-
-    if (commentItems.length > 0) {
-      // Process the fetched comments and set in the state
-      const processDetails = commentItems.map(item => ({
-        title: item.ProcessTitle,
-        numberOfApproval: item.ProcessNumberOfApprover,
-        approver: item.ProcessApprover.map((approver: { Title: string }) => approver.Title), // Map to a list of approver titles
-      }));
-
-      console.log("Updated processDetails from getComment:", processDetails);
-
-      // Update the state with the fetched process details
-      this.setState({ processDetails });
-    }
-  } catch (error) {
-    console.error("Error fetching comment items:", error);
-  }
-}
-
-renderProcessDetailsTable = (): JSX.Element => {
-  const { users, processDetails } = this.state;
-
-  // Chuyển đổi user ID thành tên để hiển thị trong select
-  const userOptions = users.map((user) => ({
-    value: user.value.toString(),
-    label: user.label,
-  }));
-
-  return (
-    <form className={styles.tableContainer}>
-      <table className="table">
-        <thead className="thead">
-          <tr>
-            <th style={{ width: '200px' }}>Mã quy trình</th>
-            <th style={{ width: '100px' }}>Cấp duyệt</th>
-            <th style={{ width: 'auto' }}>Người duyệt</th>
-          </tr>
-        </thead>
-        <tbody>
-          {processDetails.map((detail, index) => (
-            <tr key={index}>
-              <td>{detail.title}</td>
-              <td>{detail.numberOfApproval}</td>
-              <td>
-                <Select
-                  isMulti
-                  name={`Approver_${index}`}
-                  value={userOptions.filter(option =>
-                    (detail.approver || []).includes(option.value)
-                  )} // Lọc ra những user đã được chọn
-                  options={userOptions} // Hiển thị tất cả người dùng có sẵn
-                  onChange={(selectedOptions) => {
-                    const selectedIds = selectedOptions ? selectedOptions.map(option => option.value) : [];
-                    console.log("Selected Options:", selectedOptions);
-                    console.log("Selected IDs:", selectedIds);
-
-                    // Cập nhật lại processDetails và commentApprover với các user đã chọn/bỏ
-                    this.setState((prevState) => {
-                      const updatedProcessDetails = prevState.processDetails.map((item, i) =>
-                        i === index
-                          ? { ...item, approver: selectedIds }
-                          : item
-                      );
-
-                      // Cập nhật commentApprover đồng bộ với processDetails
-                      const updatedCommentApprover = prevState.commentApprover.filter(
-                        (item) => item.processTitle !== detail.title || item.numberOfApproval !== detail.numberOfApproval
-                      );
-
-                      const newApprovers = selectedOptions.map((user) => ({
-                        processTitle: detail.title,
-                        numberOfApproval: detail.numberOfApproval,
-                        value: user.value,
-                        label: user.label,
-                      }));
-
-                      return {
-                        processDetails: updatedProcessDetails,
-                        commentApprover: [...updatedCommentApprover, ...newApprovers],
-                      };
-                    }, () => {
-                      console.log("Updated Process Details:", this.state.processDetails);
-                      console.log("Updated Comment Approver:", this.state.commentApprover); // Check updated approvers
-                    });
-                  }}
-                  placeholder="Chọn người duyệt"
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </form>
-  );
-};
-
 
 
 
@@ -856,6 +943,7 @@ renderProcessDetailsTable = (): JSX.Element => {
       label: process.ProcessName,   // Dùng ProcessName cho nhãn
       title: process.ProcessName,
     }));
+    console.log("Received commentToEdit in SuggestionAdd:", this.props.commentToEdit);
 
     return (
       <div>
@@ -863,7 +951,7 @@ renderProcessDetailsTable = (): JSX.Element => {
           <StatusBar context={this.props.context} itemId={this.state.itemId} />
         )}
 
-        <div className={styles.body}>
+        <div className={styles.body}> 
           <div className={styles.tabs}>
             <button
               className={`${styles.tab} ${this.state.activeTab === 'content' ? styles.activeTab : ''}`}
@@ -980,9 +1068,9 @@ renderProcessDetailsTable = (): JSX.Element => {
                         )}
                       </div>
                     )}
-                    <button 
-                      onClick={this.addComment} 
-                      className={styles.saveButton}  
+                    <button
+                      onClick={this.addComment}
+                      className={styles.saveButton}
                     >
                       Lưu
                     </button>
@@ -1078,9 +1166,6 @@ renderProcessDetailsTable = (): JSX.Element => {
             </div>
           )}
 
-
-
-
           {this.state.activeTab === 'related' && <div><h3>Tab Liên quan</h3></div>}
 
           {this.state.activeTab === 'flow' && <div><h3>Tab Lưu đồ</h3></div>}
@@ -1097,3 +1182,4 @@ renderProcessDetailsTable = (): JSX.Element => {
     );
   }
 }
+

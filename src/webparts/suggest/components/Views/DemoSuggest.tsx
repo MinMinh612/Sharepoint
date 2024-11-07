@@ -63,8 +63,8 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
               <tr>
                 <th style={{ width: '50px' }}>Select</th>
                 <th style={{ width: '300px', textAlign: 'left' }}>Nội dung</th>
+                <th style={{ width: '200px' }}>Ngày</th>
                 {/* <th style={{ width: '150px' }}>Kế hoạch</th> 
-                <th style={{ width: '200px' }}>Ngày</th> 
                 <th style={{ width: '150px' }}>Khẩn cấp</th> 
                 <th style={{ width: '300px' }}>Ghi chú</th>  */}
                 <th style={{ width: '100px' }}>Tài liệu</th>
@@ -84,11 +84,11 @@ const DemoSuggest: React.FC<IDemoSuggestProps> = ({ suggestions, onSelectForEdit
                   <td>
                     <input type="text" value={suggestion.Title} readOnly style={{ textAlign: 'left' }}/>
                   </td>
-                  {/* <td>
-                    <input type="text" value={suggestion.Plan} readOnly /> 
-                  </td>
                   <td>
                     <input type="text" value={suggestion.DateTime} readOnly /> 
+                  </td>
+                  {/* <td>
+                    <input type="text" value={suggestion.Plan} readOnly /> 
                   </td>
                   <td>
                     <input type="text" value={suggestion.Emergency} readOnly /> 
