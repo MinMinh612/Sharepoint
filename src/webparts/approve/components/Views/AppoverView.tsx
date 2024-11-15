@@ -30,7 +30,7 @@ interface IApproverViewState {
   plans: { title: string; planName: string; planNote: string }[];
   emergencies: { title: string; EmergencyName: string; EmergencyNote: string }[];
   processes: { ProcessCode: string; ProcessName: string; NumberApporver: string; ProcessType: string }[];
-  Status: 'Draft' | 'Staff';
+  Status: string;
   commentDataApprove?: IComment[];
   itemId?: number;
   showPopup: boolean;
@@ -51,13 +51,13 @@ export interface DataSuggest {
   Status: string;
 }
 
-interface IComment{
+interface IComment {
   Id: number;
   Title: string;
   SuggestName: string;
   ProcessTitle: string;
   ProcessNumberOfApprover: string;
-  ProcessApprover: { Title: string }[];
+  ProcessApprover: { Title: string; avatarUrl?: string }[];
   isApprove: string;
   CommentApprover: string;
 }
@@ -125,20 +125,83 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
     );
   };
 
-  private handleApproveClick = (): void => {
-    this.setState({
-      showPopup: true,
-      popupTitle: 'Nhập lý do duyệt',
-      approveStatus: 'Approve', 
-    });
+  private async checkNumberOfApprover(): Promise<boolean> {
+    const { commentDataApprove } = this.state;
+    const { suggestionToEdit } = this.props;
+    const sp = spfi().using(SPFx(this.props.context));
+    const currentUser = await sp.web.currentUser();
+    const currentUserTitle = currentUser.Title;
+
+    if (!commentDataApprove || !suggestionToEdit) return false;
+
+    // Lọc các comment liên quan đến suggestion hiện tại
+    const currentSuggestionComments = commentDataApprove.filter(
+        comment => comment.Title === suggestionToEdit.Id.toString()
+    );
+
+    // Tìm comment của user hiện tại
+    const currentUserComment = currentSuggestionComments.find(
+        comment => comment.ProcessApprover.some(approver => approver.Title === currentUserTitle)
+    );
+
+    if (!currentUserComment) return false;
+
+    const currentUserLevel = currentUserComment.ProcessNumberOfApprover;
+
+    // **Kiểm tra nếu có bất kỳ cấp nào trước đã chọn "Reject"**
+    const previousLevels = currentSuggestionComments.filter(
+        comment => parseInt(comment.ProcessNumberOfApprover, 10) < parseInt(currentUserLevel, 10) // Các cấp thấp hơn
+    );
+
+    const hasRejection = previousLevels.some(comment => comment.isApprove === 'Reject');
+
+    if (hasRejection) {
+        alert('Không thể duyệt vì đã có cấp trước chọn "Không duyệt".');
+        return false;
+    }
+
+    // **Kiểm tra nếu là cấp tham mưu (có "tham mưu" trong tên cấp)**
+    if (currentUserLevel.toLowerCase().includes('tham mưu')) {
+        return true; // Tham mưu luôn được phép duyệt
+    }
+
+    // **Kiểm tra các cấp tham mưu đã duyệt hết chưa**
+    const allConsultantComments = currentSuggestionComments.filter(
+        comment => comment.ProcessNumberOfApprover.toLowerCase().includes('tham mưu')
+    );
+
+    const allConsultantsApproved = allConsultantComments.every(
+        comment => comment.isApprove === 'Approve'
+    );
+
+    if (!allConsultantsApproved) {
+        alert('Vui lòng chờ tất cả cấp tham mưu duyệt trước khi tiếp tục.');
+        return false;
+    }
+
+    return true;
+}
+
+  private handleApproveClick = async (): Promise<void> => {
+    const canApprove = await this.checkNumberOfApprover();
+    if (canApprove) {
+      this.setState({
+        showPopup: true,
+        popupTitle: 'Nhập lý do duyệt',
+        approveStatus: 'Approve',
+      });
+    }
   };
 
-  private handleRejectClick = (): void => {
-    this.setState({
-      showPopup: true,
-      popupTitle: 'Nhập lý do không duyệt',
-      approveStatus: 'Reject', 
-    });
+  private handleRejectClick = async (): Promise<void> => {
+    const canApprove = await this.checkNumberOfApprover();
+    if (canApprove) {
+      this.setState({
+        showPopup: true,
+        popupTitle: 'Nhập lý do không duyệt',
+        approveStatus: 'Reject',
+      });
+    }
   };
 
   private handlePopupClose = (): void => {
@@ -186,7 +249,7 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
 
 
   private addCommentOfApprover = async (): Promise<void> => {
-    const { commentReason, commentDataApprove, approveStatus  } = this.state;
+    const { commentReason, commentDataApprove, approveStatus } = this.state;
     const { suggestionToEdit, context } = this.props;
 
     if (!suggestionToEdit || !commentDataApprove || commentDataApprove.length === 0) {
@@ -211,13 +274,15 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
         return;
       }
 
-      // Use approveStatus to set isApprove in the update
+      // Cập nhật comment
       await sp.web.lists.getByTitle('Comment').items.getById(matchingComment.Id).update({
         CommentApprover: commentReason,
-        isApprove: approveStatus, 
+        isApprove: approveStatus,
       });
 
-      alert('Comment added successfully!');
+      await this.getCommentForApprove();
+      await this.loadCommentAvatars();
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       console.error('Error adding comment:', errorMessage);
@@ -227,15 +292,101 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
     }
   };
 
-  
 
-  
+  // lấy dữ liệu avatar
+  private async getUserAvatarUrl(userTitle: string): Promise<string> {
+    try {
+      const sp = spfi().using(SPFx(this.props.context));
+      const user = await sp.web.siteUsers.getByLoginName(userTitle)();
+
+      // Nếu có email, sử dụng URL avatar SharePoint
+      if (user.Email) {
+        return `/_layouts/15/userphoto.aspx?size=S&accountname=${encodeURIComponent(user.Email)}`;
+      }
+
+      // Nếu không có email, trả về URL avatar mặc định của SharePoint
+      return '/_layouts/15/images/PersonPlaceholder.96x96x32.png';
+    } catch (error) {
+      console.error('Error fetching user avatar:', error);
+      // Trả về URL avatar mặc định nếu có lỗi
+      return '/_layouts/15/images/PersonPlaceholder.96x96x32.png';
+    }
+  }
+
+  // Hàm load avatar vào dữ liệu comment
+  private async loadCommentAvatars(): Promise<void> {
+    const { commentDataApprove } = this.state;
+
+    if (!commentDataApprove) return;
+
+    const updatedComments = await Promise.all(
+      commentDataApprove.map(async (comment) => {
+        const approversWithAvatars = await Promise.all(
+          comment.ProcessApprover.map(async (approver) => {
+            const avatarUrl = await this.getUserAvatarUrl(approver.Title);
+            return {
+              ...approver,
+              avatarUrl,
+            };
+          })
+        );
+        return {
+          ...comment,
+          ProcessApprover: approversWithAvatars,
+        };
+      })
+    );
+    this.setState({ commentDataApprove: updatedComments });
+  }
+
+  componentDidUpdate(prevProps: IApproverViewProps): void {
+    if (prevProps.suggestionToEdit?.Id !== this.props.suggestionToEdit?.Id) {
+      this.setState({
+        itemId: this.props.suggestionToEdit?.Id,
+        Status: this.props.suggestionToEdit?.Status || '',
+      });
+    }
+  }
+
+  private stripHtmlTags(html: string): string {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return div.textContent || div.innerText || "";
+  }
+
 
   public async componentDidMount(): Promise<void> {
     await this.getCommentForApprove();
+    await this.loadCommentAvatars();
+
+    if (this.props.suggestionToEdit) {
+      this.setState({ itemId: this.props.suggestionToEdit.Id });
+    }
   }
 
-  
+  // Thêm hàm xử lý hủy duyệt
+  private handleCancelApprove = (): void => {
+    const { commentDataApprove } = this.state;
+    const { suggestionToEdit } = this.props;
+    const currentUser = this.props.context.pageContext.user.displayName;
+
+    // Tìm comment hiện tại của user
+    const currentComment = commentDataApprove?.find(
+      comment =>
+        comment.Title === suggestionToEdit?.Id.toString() &&
+        comment.ProcessApprover.some(approver => approver.Title === currentUser)
+    );
+
+    // Đổi status ngược lại
+    const newStatus = currentComment?.isApprove === 'Approve' ? 'Reject' : 'Approve';
+
+    this.setState({
+      showPopup: true,
+      popupTitle: 'Nhập lý do thay đổi',
+      approveStatus: newStatus, // Set status mới ngược với status hiện tại
+    });
+  };
+
   public render(): React.ReactElement<IApproverViewProps> {
     return (
       <div>
@@ -244,6 +395,8 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
         )} */}
 
         <StatusBar context={this.props.context} itemId={this.state.itemId || 0} />
+
+
 
 
         <div className={styles.body}>
@@ -309,7 +462,6 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
                       name="emergency"
                       value={this.state.emergency}
                       readOnly
-                      className={styles.select}
                     />
                   </label>
 
@@ -348,7 +500,7 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
                     Trích yếu:
                     <textarea
                       name="note"
-                      value={this.state.note}
+                      value={this.stripHtmlTags(this.state.note)}
                       readOnly
                       className={styles.textArea}
                     />
@@ -356,24 +508,126 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
                 </div>
               </div>
               <div className={styles.commentContainer}>
-                {this.state.Status === 'Staff' && (
-                  <ShowCommentSuggest
-                    user={{ name: 'User Name', avatarUrl: 'path_to_avatar.png' }}
-                    comment="Đây là comment mẫu"
-                    isLoading={false}
-                  />
-                )}
+                {this.state.commentDataApprove
+                  ?.filter(comment => comment.Title === this.props.suggestionToEdit?.Id.toString())
+                  .map((comment, commentIndex) => (
+                    <div key={commentIndex}>
+                      {comment.ProcessApprover.map((approver, approverIndex) => {
+                        const isCurrentUser = approver.Title === this.props.context.pageContext.user.displayName;
+
+                        return (
+                          <ShowCommentSuggest
+                            key={`${commentIndex}-${approverIndex}`}
+                            user={{
+                              name: `${approver.Title} (${comment.ProcessNumberOfApprover})`,
+                              avatarUrl: approver.avatarUrl || 'path_to_default_avatar.png',
+                            }}
+                            comment={
+                              <>
+                                {comment.CommentApprover ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    <div>
+                                      {comment.CommentApprover}
+                                      <span>
+                                        {comment.isApprove === 'Approve' ? ' ✔️' : comment.isApprove === 'Reject' ? ' ❌' : ''}
+                                      </span>
+                                    </div>
+                                    {isCurrentUser && comment.isApprove && (
+                                      <button
+                                        onClick={this.handleCancelApprove}
+                                        style={{
+                                          padding: '5px 10px',
+                                          backgroundColor: '#ff9800',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          width: 'fit-content'
+                                        }}
+                                      >
+                                        {comment.isApprove === 'Approve' ? 'Chuyển sang không duyệt' : 'Chuyển sang duyệt'}
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : isCurrentUser ? (
+                                  <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                      onClick={() => this.handleApproveClick()}
+                                      style={{
+                                        padding: '5px 10px',
+                                        backgroundColor: '#4CAF50',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Duyệt
+                                    </button>
+                                    <button
+                                      onClick={() => this.handleRejectClick()}
+                                      style={{
+                                        padding: '5px 10px',
+                                        backgroundColor: '#f44336',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Không duyệt
+                                    </button>
+                                  </div>
+                                ) : (
+                                  'Đang chờ'
+                                )}
+                              </>
+                            }
+                            isLoading={false}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
               </div>
+
             </div>
           )}
 
-          {this.state.activeTab === 'related' && <div><h3>Tab Liên quan</h3></div>}
+          {this.state.activeTab === 'related' &&
+            <div>
+              {this.state.commentDataApprove
+                ?.filter(comment => comment.Title === this.props.suggestionToEdit?.Id.toString())
+                .map((comment, commentIndex) => (
+                  <div key={commentIndex}>
+                    {comment.ProcessApprover.map((approver, approverIndex) => (
+                      <ShowCommentSuggest
+                        key={`${commentIndex}-${approverIndex}`}
+                        user={{
+                          name: `${approver.Title} (Level: ${comment.ProcessNumberOfApprover})`,
+                          avatarUrl: approver.avatarUrl || 'path_to_default_avatar.png'
+                        }}
+                        comment={
+                          <>
+                            {comment.CommentApprover || 'Đang chờ duyệt'}
+                            <span>
+                              {comment.isApprove === 'Approve' ? ' ✔️' : comment.isApprove === 'Reject' ? ' ❌' : ''}
+                            </span>
+                          </>
+                        }
+                        isLoading={false}
+                      />
+                    ))}
+                  </div>
+                ))
+              }
+            </div>
+          }
+
           {this.state.activeTab === 'flow' && <div><h3>Tab Lưu đồ</h3></div>}
 
           <div className={styles.footer}>
-            <button onClick={this.props.onClose}>Đóng</button>
-            <button onClick={this.handleApproveClick}>Duyệt</button>
-            <button onClick={this.handleRejectClick}>Không Duyệt</button>
+            <button onClick={this.props.onClose} className={`${styles.btn} ${styles.btnClose}`}>Đóng</button>
           </div>
         </div>
 
@@ -386,8 +640,18 @@ export default class ApproverView extends React.Component<IApproverViewProps, IA
               value={this.state.commentReason}
               onChange={(e) => this.setState({ commentReason: e.target.value })}
             />
-            <button onClick={this.addCommentOfApprover}>Xác nhận</button>
-            <button onClick={this.handlePopupClose}>Đóng</button>
+            <button
+              onClick={this.addCommentOfApprover}
+              className={`${styles.btn} ${styles.btnAdd}`}
+            >
+              Xác nhận
+            </button>
+            <button
+              onClick={this.handlePopupClose}
+              className={`${styles.btn} ${styles.btnClose}`}
+            >
+              Đóng
+            </button>
           </Popup>
         )}
       </div>

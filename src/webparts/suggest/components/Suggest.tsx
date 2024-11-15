@@ -326,6 +326,7 @@ export default class Suggest extends React.Component<ISuggestProps, ISuggestStat
 
   public async componentDidMount(): Promise<void> {
     await this.getComment();
+    await this.getSuggest();
   }
 
 

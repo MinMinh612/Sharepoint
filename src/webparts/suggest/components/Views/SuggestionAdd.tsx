@@ -53,6 +53,8 @@ interface ISuggestionAddState {
   users: { value: number; label: string }[]; //test
   commentData: IComment[];
   commentToEdit?: IComment[];
+  showPlanOptions: boolean;
+  showEmergencyOptions: boolean;
 }
 
 interface FieldsToAdd {
@@ -100,6 +102,11 @@ interface IComment {
   ProcessApprover: { Title: string }[]; // Assuming ProcessApprover contains an array of users
 }
 
+// Thêm interface cho thông tin user trùng
+interface IDuplicateInfo {
+  userName: string;
+  levels: string[];
+}
 
 export default class SuggestionAdd extends React.Component<ISuggestionAddProps, ISuggestionAddState> {
   constructor(props: ISuggestionAddProps) {
@@ -131,6 +138,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       users: [],
       commentData: [],
       commentToEdit: props.commentToEdit || [],
+      showPlanOptions: false,
+      showEmergencyOptions: false,
     };
     this.addComment = this.addComment.bind(this);
     this._inputChange = this._inputChange.bind(this);
@@ -148,6 +157,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     await this.getProcessDetail();
     await this.getUsers();
     await this.getComment();
+
+    document.addEventListener('click', this.handleClickOutside);
 
     if (this.state.processDetails.length === 0) {
       this.setState({
@@ -216,6 +227,57 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       }
     }
   }
+
+
+
+  componentWillUnmount(): void {
+    // Xóa sự kiện click khi component bị hủy
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+
+  handleClickOutside = (event: MouseEvent): void => {
+    const planDropdown = document.getElementById('planDropdown');
+    const planInput = document.getElementById('planInput');
+    const emergencyDropdown = document.getElementById('emergencyDropdown');
+    const emergencyInput = document.getElementById('emergencyInput');
+  
+    // Kiểm tra xem click có nằm ngoài dropdown và input của từng field không
+    if (
+      this.state.showPlanOptions &&
+      planDropdown &&
+      planInput &&
+      !planDropdown.contains(event.target as Node) &&
+      !planInput.contains(event.target as Node)
+    ) {
+      this.setState({ showPlanOptions: false });
+    }
+  
+    if (
+      this.state.showEmergencyOptions &&
+      emergencyDropdown &&
+      emergencyInput &&
+      !emergencyDropdown.contains(event.target as Node) &&
+      !emergencyInput.contains(event.target as Node)
+    ) {
+      this.setState({ showEmergencyOptions: false });
+    }
+  };
+  
+
+  private handleEmergencySelect = (emergencyName: string): void => {
+    this.setState({
+      emergency: emergencyName,      // Cập nhật giá trị được chọn
+      showEmergencyOptions: false,  // Đóng dropdown sau khi chọn
+    });
+  };
+  
+  private handlePlanSelect = (planName: string): void => {
+    this.setState({
+      plan: planName,               // Cập nhật giá trị được chọn
+      showPlanOptions: false,       // Đóng dropdown sau khi chọn
+    });
+  };  
+  
 
   // Thêm data vào Suggest list
   private async addSuggest(): Promise<void> {
@@ -658,59 +720,59 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     }
   };
 
- // Function to delete all comments related to the itemId and process titles with retry logic
-private async deleteComment(itemId: string): Promise<void> {
-  const listTitle = 'Comment';
-  const sp = spfi().using(SPFx(this.props.context));
-  const { commentData } = this.state;
+  // Function to delete all comments related to the itemId and process titles with retry logic
+  private async deleteComment(itemId: string): Promise<void> {
+    const listTitle = 'Comment';
+    const sp = spfi().using(SPFx(this.props.context));
+    const { commentData } = this.state;
 
-  const commentsToDelete = commentData.filter(comment => comment.Title === itemId);
-  console.log(`Deleting ${commentsToDelete.length} comments with Title: ${itemId}`);
+    const commentsToDelete = commentData.filter(comment => comment.Title === itemId);
+    console.log(`Deleting ${commentsToDelete.length} comments with Title: ${itemId}`);
 
-  for (const comment of commentsToDelete) {
+    for (const comment of commentsToDelete) {
       let retries = 3;  // Retry mechanism in case of intermittent failures
       while (retries > 0) {
-          try {
-              console.log('Attempting to delete comment with ID:', comment.Id);
-              await sp.web.lists.getByTitle(listTitle).items.getById(comment.Id).delete();
-              console.log('Deleted comment with ID:', comment.Id);
-              break;
-          } catch (error) {
-              console.error(`Error deleting comment with ID ${comment.Id}. Retries left: ${retries - 1}`, error);
-              retries--;
-              if (retries === 0) {
-                  console.error('Failed to delete comment after multiple attempts:', comment.Id);
-              }
+        try {
+          console.log('Attempting to delete comment with ID:', comment.Id);
+          await sp.web.lists.getByTitle(listTitle).items.getById(comment.Id).delete();
+          console.log('Deleted comment with ID:', comment.Id);
+          break;
+        } catch (error) {
+          console.error(`Error deleting comment with ID ${comment.Id}. Retries left: ${retries - 1}`, error);
+          retries--;
+          if (retries === 0) {
+            console.error('Failed to delete comment after multiple attempts:', comment.Id);
           }
+        }
       }
+    }
+
+    // Update state to clear out deleted comments locally
+    const updatedCommentData = commentData.filter(comment => comment.Title !== itemId);
+    this.setState({ commentData: updatedCommentData });
+    console.log('Updated commentData after delete:', updatedCommentData);
   }
 
-  // Update state to clear out deleted comments locally
-  const updatedCommentData = commentData.filter(comment => comment.Title !== itemId);
-  this.setState({ commentData: updatedCommentData });
-  console.log('Updated commentData after delete:', updatedCommentData);
-}
+  // Function to add new comments after clearing out old ones
+  private async addComment(): Promise<void> {
+    const { itemId, description, selectedProcessCode, processDetails, commentApprover, commentData } = this.state;
 
-// Function to add new comments after clearing out old ones
-private async addComment(): Promise<void> {
-  const { itemId, description, selectedProcessCode, processDetails, commentApprover, commentData } = this.state;
-
-  if (!itemId) {
+    if (!itemId) {
       throw new Error('Item ID is missing');
-  }
+    }
 
-  if (!selectedProcessCode || selectedProcessCode.trim() === '') {
+    if (!selectedProcessCode || selectedProcessCode.trim() === '') {
       throw new Error('Process code is missing or empty');
-  }
+    }
 
-  const listTitle = 'Comment';
-  const sp = spfi().using(SPFx(this.props.context));
+    const listTitle = 'Comment';
+    const sp = spfi().using(SPFx(this.props.context));
 
-  try {
+    try {
       await this.getComment();
 
       if (processDetails.length === 0) {
-          throw new Error('No process details found');
+        throw new Error('No process details found');
       }
 
       // Delete all existing comments for this item before adding new ones
@@ -718,121 +780,121 @@ private async addComment(): Promise<void> {
       console.log('Cleared all existing comments for item ID:', itemId);
 
       for (const detail of processDetails) {
-          const { title, numberOfApproval } = detail;
+        const { title, numberOfApproval } = detail;
 
-          if (!description || !title || !numberOfApproval) {
-              throw new Error("One or more fields are missing or empty.");
+        if (!description || !title || !numberOfApproval) {
+          throw new Error("One or more fields are missing or empty.");
+        }
+
+        // Filter approvers related to the current process level
+        const relatedApprovers = commentApprover.filter(
+          approver =>
+            approver.processTitle === title &&
+            approver.numberOfApproval === numberOfApproval &&
+            approver.value
+        );
+
+        // Determine if this level is restricted to a single approver
+        const isNumericLevel = /^\d+$/.test(numberOfApproval);
+
+        if (isNumericLevel) {
+          // For levels 1, 2, 3, etc., ensure exactly one approver
+          if (relatedApprovers.length !== 1) {
+            alert(`Cấp duyệt ${numberOfApproval} yêu cầu chính xác một người duyệt.`);
+            continue;
           }
-
-          // Filter approvers related to the current process level
-          const relatedApprovers = commentApprover.filter(
-              approver =>
-                  approver.processTitle === title &&
-                  approver.numberOfApproval === numberOfApproval &&
-                  approver.value
-          );
-
-          // Determine if this level is restricted to a single approver
-          const isNumericLevel = /^\d+$/.test(numberOfApproval);
-
-          if (isNumericLevel) {
-              // For levels 1, 2, 3, etc., ensure exactly one approver
-              if (relatedApprovers.length !== 1) {
-                  alert(`Cấp duyệt ${numberOfApproval} yêu cầu chính xác một người duyệt.`);
-                  continue;
-              }
-          } else {
-              // For "Tham mưu" levels, show a warning if there are no approvers
-              if (relatedApprovers.length === 0) {
-                  const confirmSave = window.confirm(`Cấp tham mưu ${numberOfApproval} đang rỗng. Bạn có muốn lưu dữ liệu không?`);
-                  if (!confirmSave) {
-                      continue; // Skip saving for this level if the user chooses not to save
-                  }
-              }
-          }
-
+        } else {
+          // For "Tham mưu" levels, show a warning if there are no approvers
           if (relatedApprovers.length === 0) {
-              // Add main comment when `relatedApprovers` is empty
-              const fieldsToAdd: IFieldsToAddComment = {
-                  Title: itemId.toString(),
-                  SuggestName: description,
-                  ProcessTitle: title,
-                  ProcessNumberOfApprover: numberOfApproval,
-              };
-
-              const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
-
-              let addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
-              if (!addedItemId) {
-                  addedItemId = addItemResult?.data?.id || addItemResult?.data?.odata.id;
-              }
-
-              if (!addedItemId) {
-                  console.error('Failed to retrieve the added item ID from addItemResult:', addItemResult);
-                  throw new Error('Failed to retrieve the added item ID');
-              }
-
-              console.log('Main comment added successfully with ID:', addedItemId);
-
-              commentData.push({
-                  Id: addedItemId,
-                  Title: itemId.toString(),
-                  SuggestName: description,
-                  ProcessTitle: title,
-                  ProcessNumberOfApprover: numberOfApproval,
-                  ProcessApprover: [],
-              });
-              this.setState({ commentData });
-              console.log('Updated commentData after adding main comment:', this.state.commentData);
-          } else {
-              // Add each approver individually if `relatedApprovers` is not empty
-              console.log('Adding individual approvers for title:', title, 'and numberOfApproval:', numberOfApproval);
-
-              for (const approver of relatedApprovers) {
-                  const oneUser = { Id: approver.value };
-                  console.log('Adding user with ID:', oneUser.Id);
-
-                  const fieldsToAddForUser = {
-                      Title: itemId.toString(),
-                      SuggestName: description,
-                      ProcessTitle: title,
-                      ProcessNumberOfApprover: numberOfApproval,
-                      ProcessApproverId: [oneUser.Id],
-                  };
-
-                  await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAddForUser);
-                  console.log('Approver added successfully with new item for user ID:', oneUser.Id);
-              }
+            const confirmSave = window.confirm(`Cấp tham mưu ${numberOfApproval} đang rỗng. Bạn có muốn lưu dữ liệu không?`);
+            if (!confirmSave) {
+              continue; // Skip saving for this level if the user chooses not to save
+            }
           }
+        }
+
+        if (relatedApprovers.length === 0) {
+          // Add main comment when `relatedApprovers` is empty
+          const fieldsToAdd: IFieldsToAddComment = {
+            Title: itemId.toString(),
+            SuggestName: description,
+            ProcessTitle: title,
+            ProcessNumberOfApprover: numberOfApproval,
+          };
+
+          const addItemResult = await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAdd);
+
+          let addedItemId = addItemResult?.data?.ID || addItemResult?.data?.Id || addItemResult?.ID || addItemResult?.Id;
+          if (!addedItemId) {
+            addedItemId = addItemResult?.data?.id || addItemResult?.data?.odata.id;
+          }
+
+          if (!addedItemId) {
+            console.error('Failed to retrieve the added item ID from addItemResult:', addItemResult);
+            throw new Error('Failed to retrieve the added item ID');
+          }
+
+          console.log('Main comment added successfully with ID:', addedItemId);
+
+          commentData.push({
+            Id: addedItemId,
+            Title: itemId.toString(),
+            SuggestName: description,
+            ProcessTitle: title,
+            ProcessNumberOfApprover: numberOfApproval,
+            ProcessApprover: [],
+          });
+          this.setState({ commentData });
+          console.log('Updated commentData after adding main comment:', this.state.commentData);
+        } else {
+          // Add each approver individually if `relatedApprovers` is not empty
+          console.log('Adding individual approvers for title:', title, 'and numberOfApproval:', numberOfApproval);
+
+          for (const approver of relatedApprovers) {
+            const oneUser = { Id: approver.value };
+            console.log('Adding user with ID:', oneUser.Id);
+
+            const fieldsToAddForUser = {
+              Title: itemId.toString(),
+              SuggestName: description,
+              ProcessTitle: title,
+              ProcessNumberOfApprover: numberOfApproval,
+              ProcessApproverId: [oneUser.Id],
+            };
+
+            await sp.web.lists.getByTitle(listTitle).items.add(fieldsToAddForUser);
+            console.log('Approver added successfully with new item for user ID:', oneUser.Id);
+          }
+        }
       }
 
       console.log('All comments and process details added or updated successfully!');
       this.showSuccessNotification("Thêm thành công!"); // Show success notification
-  } catch (error) {
+    } catch (error) {
       console.error('Error during addComment execution:', error);
+    }
   }
-}
 
-// Function to show a non-intrusive success notification
-private showSuccessNotification(message: string): void {
-  // Display a toast notification or add any UI element for feedback
-  const notificationElement = document.createElement("div");
-  notificationElement.innerText = message;
-  notificationElement.style.position = "fixed";
-  notificationElement.style.bottom = "20px";
-  notificationElement.style.right = "20px";
-  notificationElement.style.backgroundColor = "green";
-  notificationElement.style.color = "white";
-  notificationElement.style.padding = "10px";
-  notificationElement.style.borderRadius = "5px";
-  notificationElement.style.zIndex = "1000";
-  document.body.appendChild(notificationElement);
+  // Function to show a non-intrusive success notification
+  private showSuccessNotification(message: string): void {
+    // Display a toast notification or add any UI element for feedback
+    const notificationElement = document.createElement("div");
+    notificationElement.innerText = message;
+    notificationElement.style.position = "fixed";
+    notificationElement.style.bottom = "20px";
+    notificationElement.style.right = "20px";
+    notificationElement.style.backgroundColor = "green";
+    notificationElement.style.color = "white";
+    notificationElement.style.padding = "10px";
+    notificationElement.style.borderRadius = "5px";
+    notificationElement.style.zIndex = "1000";
+    document.body.appendChild(notificationElement);
 
-  // Remove the notification after 3 seconds
-  setTimeout(() => {
+    // Remove the notification after 3 seconds
+    setTimeout(() => {
       document.body.removeChild(notificationElement);
-  }, 3000);
-}
+    }, 3000);
+  }
 
 
 
@@ -866,119 +928,129 @@ private showSuccessNotification(message: string): void {
     }
   }
 
-  //Chưa tìm được lỗi tại sao code không đổi mà lúc nào cũng mặc định là nhận ProcessDetail
-  renderProcessDetailsTable = (): JSX.Element => {
-    const { users, processDetails, commentToEdit } = this.state;
+  // Thêm hàm kiểm tra user trùng lặp giữa các cấp
+  private checkDuplicateUserAcrossLevels = (
+    selectedOptions: { value: string; label: string }[],
+    currentLevel: string,
+    currentProcessTitle: string
+  ): IDuplicateInfo[] => {
+    const { processDetails } = this.state;
+    const duplicateUsers: IDuplicateInfo[] = [];
 
-    // Convert user ID to name for displaying in the select dropdown
+    selectedOptions.forEach(selectedUser => {
+      const duplicateLevels: string[] = [];
+
+      processDetails.forEach(detail => {
+        // Kiểm tra trong cùng quy trình nhưng khác cấp
+        if (detail.title === currentProcessTitle &&
+          detail.numberOfApproval !== currentLevel &&
+          detail.approver.includes(selectedUser.value)) {
+          duplicateLevels.push(detail.numberOfApproval);
+        }
+      });
+
+      if (duplicateLevels.length > 0) {
+        duplicateUsers.push({
+          userName: selectedUser.label,
+          levels: duplicateLevels
+        });
+      }
+    });
+
+    return duplicateUsers;
+  };
+
+  // Cập nhật hàm xử lý thay đổi người duyệt trong renderProcessDetailsTable
+  renderProcessDetailsTable = (): JSX.Element => {
+    const { users, processDetails } = this.state;
     const userOptions = users.map((user) => ({
-        value: user.value.toString(),
-        label: user.label,
+      value: user.value.toString(),
+      label: user.label,
     }));
 
-    // Check if `commentToEdit` exists and has data
-    const itemId = this.props.suggestionToEdit?.Id?.toString();
-    const filteredCommentData = commentToEdit
-        ? commentToEdit.filter((comment: IComment) => comment.Title === itemId)
-        : [];
-
     return (
-        <form className={styles.tableContainer}>
-            <table className="table">
-                <thead className="thead">
-                    <tr>
-                        <th style={{ width: '200px' }}>Mã quy trình</th>
-                        <th style={{ width: '100px' }}>Cấp duyệt</th>
-                        <th style={{ width: 'auto' }}>Người duyệt</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredCommentData.length > 0 ? (
-                        // Display `filteredCommentData` with edit capability
-                        filteredCommentData.map((comment: IComment, index: number) => (
-                            <tr key={`comment-${index}`}>
-                                <td>{comment.ProcessTitle}</td>
-                                <td>{comment.ProcessNumberOfApprover}</td>
-                                <td>
-                                    <Select
-                                        isMulti
-                                        name={`Approver_${index}`}
-                                        value={userOptions.filter(option =>
-                                            comment.ProcessApprover.some((approver: { Title: string }) => approver.Title === option.label)
-                                        )}
-                                        options={userOptions}
-                                        onChange={(selectedOptions) => {
-                                            // Update commentToEdit in state
-                                            this.setState((prevState) => {
-                                                const updatedComments = (prevState.commentToEdit || []).map((comm: IComment, i: number) => {
-                                                    if (i === index) {
-                                                        return {
-                                                            ...comm,
-                                                            ProcessApprover: selectedOptions?.map(option => ({ Title: option.label })) || []
-                                                        };
-                                                    }
-                                                    return comm;
-                                                });
-
-                                                return {
-                                                    commentToEdit: updatedComments,
-                                                };
-                                            });
-                                        }}
-                                        placeholder="Chọn người duyệt"
-                                    />
-                                </td>
-                            </tr>
-                        ))
-                    ) : (
-                        processDetails.map((detail, index) => (
-                            <tr key={index}>
-                                <td>{detail.title}</td>
-                                <td>{detail.numberOfApproval}</td>
-                                <td>
-                                    <Select
-                                        isMulti
-                                        name={`Approver_${index}`}
-                                        value={userOptions.filter(option =>
-                                            (detail.approver || []).includes(option.value)
-                                        )}
-                                        options={userOptions}
-                                        onChange={(selectedOptions) => {
-                                            const selectedIds = selectedOptions ? selectedOptions.map(option => option.value) : [];
-                                            this.setState((prevState) => {
-                                                const updatedProcessDetails = prevState.processDetails.map((item, i) =>
-                                                    i === index ? { ...item, approver: selectedIds } : item
-                                                );
-
-                                                const updatedCommentApprover = prevState.commentApprover.filter(
-                                                    (item) => item.processTitle !== detail.title || item.numberOfApproval !== detail.numberOfApproval
-                                                );
-
-                                                const newApprovers = selectedOptions.map((user) => ({
-                                                    processTitle: detail.title,
-                                                    numberOfApproval: detail.numberOfApproval,
-                                                    value: user.value,
-                                                    label: user.label,
-                                                }));
-
-                                                return {
-                                                    processDetails: updatedProcessDetails,
-                                                    commentApprover: [...updatedCommentApprover, ...newApprovers],
-                                                };
-                                            });
-                                        }}
-                                        placeholder="Chọn người duyệt"
-                                    />
-                                </td>
-                            </tr>
-                        ))
+      <form className={styles.tableContainer}>
+        <table className="table">
+          <thead className="thead">
+            <tr>
+              <th style={{ width: '200px' }}>Mã quy trình</th>
+              <th style={{ width: '100px' }}>Cấp duyệt</th>
+              <th style={{ width: 'auto' }}>Người duyệt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {processDetails.map((detail, index) => (
+              <tr key={index}>
+                <td>{detail.title}</td>
+                <td>{detail.numberOfApproval}</td>
+                <td>
+                  <Select
+                    isMulti
+                    name={`Approver_${index}`}
+                    value={userOptions.filter(option =>
+                      (detail.approver || []).includes(option.value)
                     )}
-                </tbody>
-            </table>
-        </form>
-    );
-};
+                    options={userOptions}
+                    onChange={(selectedOptions) => {
+                      const options = selectedOptions || [];
 
+                      // Kiểm tra nếu là cấp duyệt số và có nhiều hơn 1 người được chọn
+                      if (!isNaN(Number(detail.numberOfApproval)) && options.length > 1) {
+                        alert(`Cấp duyệt ${detail.numberOfApproval} chỉ được phép chọn 1 người duyệt`);
+                        return;
+                      }
+
+                      // Kiểm tra user trùng lặp
+                      const duplicateUsers = this.checkDuplicateUserAcrossLevels(
+                        [...options],
+                        detail.numberOfApproval,
+                        detail.title
+                      );
+
+                      if (duplicateUsers.length > 0) {
+                        const duplicateMessages = duplicateUsers.map(duplicate =>
+                          `Người dùng "${duplicate.userName}" đã được chọn ở ${duplicate.levels.length > 1 ? 'các' : ''} cấp: ${duplicate.levels.join(', ')}`
+                        );
+                        alert(`Phát hiện trùng lặp:\n${duplicateMessages.join('\n')}\n\nVui lòng chọn người duyệt khác.`);
+                        return;
+                      }
+
+                      // Nếu không có trùng lặp, cập nhật state
+                      this.setState((prevState) => {
+                        const updatedProcessDetails = prevState.processDetails.map((item, i) =>
+                          i === index ? { ...item, approver: options.map(opt => opt.value) } : item
+                        );
+
+                        const updatedCommentApprover = options.map((user) => ({
+                          processTitle: detail.title,
+                          numberOfApproval: detail.numberOfApproval,
+                          value: user.value,
+                          label: user.label,
+                        }));
+
+                        const filteredCommentApprover = prevState.commentApprover.filter(
+                          (item) =>
+                            item.processTitle !== detail.title ||
+                            item.numberOfApproval !== detail.numberOfApproval
+                        );
+
+                        return {
+                          ...prevState,
+                          processDetails: updatedProcessDetails,
+                          commentApprover: [...filteredCommentApprover, ...updatedCommentApprover],
+                        };
+                      });
+                    }}
+                    placeholder="Chọn người duyệt"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </form>
+    );
+  };
 
 
 
@@ -996,7 +1068,7 @@ private showSuccessNotification(message: string): void {
           <StatusBar context={this.props.context} itemId={this.state.itemId} />
         )}
 
-        <div className={styles.body}> 
+        <div className={styles.body}>
           <div className={styles.tabs}>
             <button
               className={`${styles.tab} ${this.state.activeTab === 'content' ? styles.activeTab : ''}`}
@@ -1033,20 +1105,27 @@ private showSuccessNotification(message: string): void {
                   </label>
                   <label className={styles.label}>
                     Kế hoạch:
-                    <select
-                      name="plan"
-                      value={this.state.plan}
-                      onChange={this._inputChange}
-                      className={styles.select}
-                    >
-                      <option value="">Chọn kế hoạch</option>
-                      {this.state.plans.map((plan, index) => (
-                        <option key={index} value={plan.planName}>
-                          {plan.planName}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      id="planInput" // Thêm ID cho input
+                      value={this.state.plan || "Chọn kế hoạch"}
+                      readOnly
+                      onClick={() => this.setState({ showPlanOptions: !this.state.showPlanOptions })}
+                    />
+                    {this.state.showPlanOptions && (
+                      <div id="planDropdown"> {/* Thêm ID cho dropdown container */}
+                        {this.state.plans.map((plan, index) => (
+                          <div
+                            key={index}
+                            onClick={() => this.handlePlanSelect(plan.planName)}
+                          >
+                            {plan.planName}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </label>
+
                   <label className={styles.label}>
                     Ngày:
                     <input
@@ -1066,22 +1145,27 @@ private showSuccessNotification(message: string): void {
                 <div className={styles.row}>
                   <label className={styles.label}>
                     Độ ưu tiên:
-                    <select
-                      name="emergency"
-                      value={this.state.emergency}
-                      onChange={this._inputChange}
-                      className={styles.select}
-                      style={{ width: 'auto' }}
-                    >
-                      <option value="">Chọn độ ưu tiên</option>
-                      {this.state.emergencies.map((item, index) => (
-                        <option key={index} value={item.EmergencyName}>
-                          {item.EmergencyName}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      id="emergencyInput" 
+                      value={this.state.emergency || "Chọn độ ưu tiên"}
+                      readOnly
+                      onClick={() => this.setState({ showEmergencyOptions: !this.state.showEmergencyOptions })}
+                    />
+                    {this.state.showEmergencyOptions && (
+                      <div id="emergencyDropdown" className="dropdown"> {/* Thêm ID cho dropdown container */}
+                        {this.state.emergencies.map((item, index) => (
+                          <div
+                            key={index}
+                            className="dropdownItem"
+                            onClick={() => this.handleEmergencySelect(item.EmergencyName)}
+                          >
+                            {item.EmergencyName}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </label>
-
                   <label className={styles.label}>
                     Tên quy trình:
                     <input
