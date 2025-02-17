@@ -548,3 +548,11 @@ input, select, textarea {
   justify-content: space-between;
   margin-bottom: 15px;
 }
+
+
+.btnContainer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px; 
+  margin-top: 10px;
+}

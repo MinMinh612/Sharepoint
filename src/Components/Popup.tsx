@@ -6,15 +6,15 @@ interface IPopupProps {
   onClose: () => void;
   onSave?: () => void;
   children?: React.ReactNode;
+  saveButtonText?: string;
 }
 
-const Popup: React.FC<IPopupProps> = ({ show, onClose, onSave, children }) => {
+const Popup: React.FC<IPopupProps> = ({ show, onClose, onSave, children, saveButtonText = "Lưu" }) => {
   if (!show) return null; // Nếu `show` là false thì không hiển thị popup
 
   return (
     <div className={styles.popupOverlay}>
       <div className={styles.popupContent}>
-        {/* Nút đóng "X" */}
         <button className={styles.closeButton} onClick={onClose}>
           &times; {/* Đây là ký tự "X" */}
         </button>
@@ -25,7 +25,7 @@ const Popup: React.FC<IPopupProps> = ({ show, onClose, onSave, children }) => {
           {/* Nút Lưu */}
           {onSave && (
             <button className={styles.saveButton} onClick={onSave}>
-              Lưu
+              {saveButtonText}
             </button>
           )}
           {/* Nút Đóng */}

@@ -40,3 +40,26 @@ export interface Comment {
   content: string;
 }
 
+export interface IComment {
+  Id: number;
+  Title: string;
+  SuggestName: string;
+  ProcessTitle: string;
+  ProcessNumberOfApprover: string;
+  ProcessApprover: { Title: string }[];
+}
+
+export interface IAttachment {
+  FileName: string;
+  ServerRelativeUrl: string;
+}
+
+export interface dataSuggest {
+  Id: number;
+  Title: string;
+  ProcessName: string;
+  Attachments?: { FileName: string; Url: string }[];
+}
+
+
+

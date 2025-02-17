@@ -1,0 +1,123 @@
+.tableContainer {
+  width: 100%;
+  overflow: hidden; /* Đảm bảo nội dung không tràn */
+  margin: 20px 0;
+  border: 1px solid #ddd; /* Viền bao quanh bảng */
+  border-radius: 4px;
+}
+
+.fixedHeaderTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  table-layout: fixed; /* Đồng bộ chiều rộng cột */
+}
+
+.fixedHeaderTable thead {
+  position: sticky; /* Header cố định */
+  top: 0;
+  z-index: 2;
+  background-color: #f3f3ef6e; /* Màu nền cho header */
+  display: table; /* Đảm bảo đồng bộ với tbody */
+}
+
+.fixedHeaderTable thead th {
+  padding: 12px 10px;
+  text-align: left; /* Căn trái mặc định cho tất cả các cột */
+  font-weight: bold;
+  color: #020202; /* Màu chữ trắng */
+  border-bottom: 2px solid #ddd;
+  text-transform: uppercase;
+}
+
+.fixedHeaderTable thead .searchRow th {
+  background-color: #fff; /* Màu trắng giống tbody */
+  font-weight: normal; /* Giảm độ đậm để khớp nội dung */
+  padding: 10px; /* Giữ padding đồng bộ */
+  text-align: left; /* Căn chỉnh văn bản giống tbody */
+}
+
+.fixedHeaderTable tbody {
+  display: block; /* Bắt buộc để hỗ trợ thanh cuộn */
+  max-height: 300px; /* Chiều cao tối đa của nội dung bảng */
+  overflow-y: hidden; /* Thêm thanh cuộn dọc */
+  width: 100%; /* Đảm bảo khớp chiều rộng */
+}
+
+.fixedHeaderTable thead,
+.fixedHeaderTable tbody tr {
+  display: table; /* Đảm bảo header và nội dung giữ hàng cột thẳng hàng */
+  width: 100%; /* Đảm bảo các cột đồng bộ */
+  table-layout: fixed; /* Đặt chiều rộng cột cố định */
+}
+
+.fixedHeaderTable thead th:first-child,
+.fixedHeaderTable tbody td:first-child {
+  text-align: left; /* Căn giữa checkbox */
+}
+
+.fixedHeaderTable tbody tr {
+  &:nth-child(even) {
+    background-color: #f9f9f9; /* Nền xen kẽ */
+  }
+
+  &:hover {
+    background-color: #f1f1f1; /* Màu nền khi hover */
+  }
+}
+
+.fixedHeaderTable tbody td {
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left; /* Căn trái mặc định */
+  background-color: #fff;
+}
+
+.fixedHeaderTable tbody td:first-child {
+  text-align: left; /* Căn giữa checkbox trong nội dung */
+}
+
+.fixedHeaderTable tbody input[type="checkbox"] {
+  display: block;
+  margin: 0 auto; /* Đảm bảo căn giữa trong cột */
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #fff;
+  box-sizing: border-box;
+  font-size: 10px;
+}
+
+.circularCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.fixedHeaderTable th:first-child input[type="checkbox"],
+.fixedHeaderTable td:first-child input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0 0 15% 0;
+  transform: scale(1.2);
+  position: relative;
+  top: 50%;
+  // transform: translateY(-50%);
+}
+
+.highlighted {
+  background-color: #c7c7c7 !important; /* Màu nền nổi bật */
+  color: #0c5460;
+  font-weight: bold;
+}
+
+.checkboxColumn {
+  width: 50px;
+  text-align: left;
+}

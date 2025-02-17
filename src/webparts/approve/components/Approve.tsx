@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { IApproveProps } from './IApproveProps';
+import { IApproveProps, IAttachment, ICommentForApprove, DataSuggest } from './IApproveProps';
 import styles from '../../suggest/components/Views/Suggestion.module.scss';
 import ApproverView from './Views/AppoverView';
 import '@pnp/sp/webs';
@@ -9,6 +9,7 @@ import '@pnp/sp/attachments';
 import '@pnp/sp/site-users/web';
 import { FaSearch, FaEdit } from 'react-icons/fa';
 import { spfi, SPFx } from '@pnp/sp';
+import TableRender from '../../../Components/TableRender';
 
 interface IApproveState {
   suggestions: DataSuggest[];
@@ -24,34 +25,6 @@ interface IApproveState {
   selectedSuggestion: DataSuggest | undefined;
 }
 
-interface IAttachment {
-  FileName: string;
-  ServerRelativeUrl: string;
-}
-
-interface ICommentForApprove {
-  Id: number;
-  Title: string;
-  SuggestName: string;
-  ProcessTitle: string;
-  ProcessNumberOfApprover: string;
-  ProcessApprover: { Title: string }[];
-  isApprove: string;
-  CommentApprover: string;
-}
-
-export interface DataSuggest {
-  Status: string;
-  Plan: string;
-  DateTime: string;
-  Emergency: string;
-  Note: string;
-  Id: number;
-  Title: string;
-  ProcessName: string;
-  Attachments: { FileName: string; Url: string }[];
-}
-
 export default class Approve extends React.Component<IApproveProps, IApproveState> {
   constructor(props: IApproveProps) {
     super(props);
@@ -63,7 +36,7 @@ export default class Approve extends React.Component<IApproveProps, IApproveStat
       currentIndex: undefined,
       error: '',
       description: '',
-      filterStatus: 'Staff',
+      filterStatus: 'Staff', // Default status filter
       commentDataApprove: [],
       showApproverView: false,
       selectedSuggestion: undefined,
@@ -85,14 +58,27 @@ export default class Approve extends React.Component<IApproveProps, IApproveStat
     const sp = spfi().using(SPFx(this.props.context));
 
     try {
-      // Lọc dữ liệu dựa trên trạng thái được chọn trong select
+      // Determine the filter based on the selected status
+      let statusFilter = '';
+      if (filterStatus === 'waiting') {
+        statusFilter = "Status eq 'Staff' or Status eq 'Approve'";
+      } else if (filterStatus === 'rejected') {
+        statusFilter = "Status eq 'Reject'";
+      } else if (filterStatus === 'approved') {
+        statusFilter = "Status eq 'Issue'";
+      }
+
+      console.log('Applying filter:', statusFilter); // Log the filter to debug
+
+      // Fetch data from SharePoint list with the appropriate filter
       const items = await sp.web.lists.getByTitle(listTitle).items
         .select('Id', 'Title', 'Plan', 'DateTime', 'Emergency', 'ProcessName', 'Note', 'Status')
-        .filter(`Status eq '${filterStatus}'`)
+        .filter(statusFilter)
         .expand('AttachmentFiles')();
 
       const suggestions: DataSuggest[] = await Promise.all(
         items.map(async (item) => {
+          // Fetch attachments for each suggestion item
           const attachments = await sp.web.lists.getByTitle(listTitle).items.getById(item.Id).attachmentFiles();
           const attachmentLinks = attachments.map((attachment: IAttachment) => ({
             FileName: attachment.FileName,
@@ -108,101 +94,103 @@ export default class Approve extends React.Component<IApproveProps, IApproveStat
             Note: item.Note,
             ProcessName: item.ProcessName || '',
             Attachments: attachmentLinks || [],
-            Status: item.Status as 'Draft' | 'Staff' | 'Approve' | 'Deny',
+            Status: item.Status as 'Draft' | 'Staff' | 'Approve' | 'Reject' | 'Issue',
           };
         })
       );
 
-      this.setState({ suggestions });
+      this.setState({ suggestions }); // Update state with fetched suggestions
     } catch (error) {
       console.error('Error retrieving data:', error.message);
       alert('Error retrieving data: ' + error.message);
     }
   }
 
+  // Call getSuggestForApprove when component mounts
   public async componentDidMount(): Promise<void> {
     await this.getSuggestForApprove();
   }
 
+  // Open the approver view for a selected suggestion
   private openApproverView(suggestion: DataSuggest): void {
     this.setState({ selectedSuggestion: suggestion, showApproverView: true });
   }
 
   public render(): React.ReactElement<IApproveProps> {
+    const headers: readonly ["Nội dung", "Dự án", "Ngày", "Độ ưu tiên", "Xem duyệt"] = [
+      "Nội dung",
+      "Dự án",
+      "Ngày",
+      "Độ ưu tiên",
+      "Xem duyệt",
+    ];
+
+    // Map state suggestions to data format for TableRender
+    const data = this.state.suggestions.map((suggestion) => ({
+      'Nội dung': suggestion.Title,
+      'Dự án': suggestion.Plan,
+      'Ngày': suggestion.DateTime
+    ? new Date(suggestion.DateTime).toLocaleString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    : '',
+      'Độ ưu tiên': suggestion.Emergency,
+      'Xem duyệt': (
+        <FaEdit
+          onClick={() => this.openApproverView(suggestion)} // Open approver view on click
+          style={{ cursor: 'pointer' }}
+        />
+      ),
+    }));
+
     return (
       <div className={styles.formContainer}>
         {!this.state.showApproverView && (
           <form className={styles.tableContainer}>
             <div className={styles.actionButtons}>
               <select
-                onChange={(e) => this.setState({ filterStatus: e.target.value }, this.getSuggestForApprove)}
-                value={this.state.filterStatus}
+                onChange={async (e) => {
+                  const filterStatus = e.target.value;
+                  this.setState({ filterStatus });
+                  try {
+                    await this.getSuggestForApprove();
+                  } catch (error) {
+                    console.error('Error fetching suggestions:', error);
+                  }
+                }}
+                value={this.state.filterStatus} 
               >
-                <option value="Staff">Chờ duyệt</option>
-                <option value="Approve">Đã duyệt</option>
-                <option value="Deny">Không duyệt</option>
+                <option value="waiting">Chờ duyệt</option>
+                <option value="rejected">Không duyệt</option>
+                <option value="approved">Đã duyệt</option>
               </select>
+
               <button
                 type="button"
-                onClick={this.getSuggestForApprove}
+                onClick={this.getSuggestForApprove} // Trigger the API call on button click
                 className={`${styles.btn} ${styles.btnEdit}`}
               >
                 <FaSearch color="blue" />
               </button>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: '200px', textAlign: 'left' }}>Nội dung</th>
-                  <th style={{ width: '200px', textAlign: 'left' }}>Dự án</th>
-                  <th style={{ width: '200px', textAlign: 'left' }}>Ngày</th>
-                  <th style={{ width: '200px', textAlign: 'left' }}>Độ ưu tiên</th>
-                  <th style={{ width: '150px', textAlign: 'left' }}>Xem duyệt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {this.state.suggestions.length > 0 ? (
-                  this.state.suggestions.map((suggestion: DataSuggest, index: number) => (
-                    <tr key={index}>
-                      <td>
-                        <input type="text" value={suggestion.Title} readOnly />
-                      </td>
-                      <td>
-                        <input type="text" value={suggestion.Plan} readOnly />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={
-                            suggestion.DateTime
-                              ? new Date(suggestion.DateTime).toISOString().slice(0, 16)
-                              : ''
-                          }
-                          readOnly
-                        />
-                      </td>
-                      <td>
-                        <input type="text" value={suggestion.Emergency} readOnly />
-                      </td>
-                      <td>
-                        <FaEdit
-                          onClick={() => this.openApproverView(suggestion)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center' }}>
-                      Không có dữ liệu
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+
+            {/* Render Table */}
+            <TableRender
+              headers={headers}
+              showSelectColumn={false}
+              data={data}
+              onRowSelectionChange={(selectedRows) => {
+                // Handle row selection if needed
+              }}
+            />
           </form>
         )}
+
         {this.state.showApproverView && this.state.selectedSuggestion && (
           <ApproverView
             suggestionToEdit={this.state.selectedSuggestion}

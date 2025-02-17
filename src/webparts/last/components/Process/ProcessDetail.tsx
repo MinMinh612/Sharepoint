@@ -168,10 +168,6 @@ export default class ProcessDetail extends React.Component<IProcessDetailProps, 
                         ApproverId: advisorData // Mảng người tham mưu
                     });
                 }
-
-                console.log('advisorData trong ProcessDetail',advisorData)
-                console.log('approverData trong ProcessDetail',approverData)
-
                 // Kiểm tra và cập nhật dòng cấp duyệt chính
                 const existingApproverItem = existingItems.find(item => item.NumberOfApproval === `${level}`);
                 if (existingApproverItem) {

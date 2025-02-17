@@ -33,6 +33,14 @@
           "manifest": "./src/webparts/home/HomeWebPart.manifest.json"
         }
       ]
+    },
+    "permission-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/permission/PermissionWebPart.js",
+          "manifest": "./src/webparts/permission/PermissionWebPart.manifest.json"
+        }
+      ]
     }
   },
   "externals": {
@@ -44,6 +52,7 @@
     "SuggestWebPartStrings": "lib/webparts/suggest/loc/{locale}.js",
     "ApproveWebPartStrings": "lib/webparts/approve/loc/{locale}.js",
     "HomeWebPartStrings": "lib/webparts/home/loc/{locale}.js",
-    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js"
+    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js",
+    "PermissionWebPartStrings": "lib/webparts/permission/loc/{locale}.js"
   }
 }

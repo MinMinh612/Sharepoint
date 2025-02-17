@@ -55,24 +55,6 @@ interface ISuggestionAddState {
   showPlanOptions: boolean;
   showEmergencyOptions: boolean;
   commentDataApprove: IComment[];
-  permission: {
-    Title: string;
-    UserName: { Id: number; Title: string } | undefined; // Chỉnh UserName thành object
-    TitleTypePermission: string;
-    Module: string;
-    Run: boolean;
-    Add: boolean;
-    Modify: boolean;
-    Delete: boolean;
-    ApproveSuggestion: boolean;
-  }[];
-  department: {
-    Title: string;
-    NameDepartment: string;
-    MemberOfDepartment: { Id: number; Title: string } | undefined; 
-    ManagerOfDepartment: { Id: number; Title: string } | undefined; 
-    LeaderOfDepartment: { Id: number; Title: string } | undefined; 
-  }[];
 }
 
 interface FieldsToAdd {
@@ -117,6 +99,7 @@ interface IComment {
   isApprove?: 'Approve' | 'Reject' | undefined;
 }
 
+// Thêm interface cho thông tin user trùng
 interface IDuplicateInfo {
   userName: string;
   levels: string[];
@@ -155,8 +138,6 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       showPlanOptions: false,
       showEmergencyOptions: false,
       commentDataApprove: [],
-      permission: [],
-      department: [],
     };
     this.addComment = this.addComment.bind(this);
     this._inputChange = this._inputChange.bind(this);
@@ -174,31 +155,9 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     await this.getProcessDetail();
     await this.getUsers();
     await this.getComment();
-    await this.getPermission();
-    await this.getDepartment();
+    await this.getCommentForApprove();
 
-    console.log('Dữ liệu cũ trước khi setState:', this.props.suggestionToEdit);
-
-    if (this.props.suggestionToEdit) {
-      const { Title, Plan, Emergency, DateTime, Note, ProcessName } = this.props.suggestionToEdit;
-
-      this.setState((prevState) => ({
-        description: Title || '',
-        plan: Plan || '',
-        emergency: Emergency || '',
-        dateTime: DateTime || '',
-        note: Note || '',
-        processName: ProcessName || '',
-        selectedProcessCode: prevState.processes.find(p => p.ProcessName === ProcessName)?.ProcessCode
-      }), async () => {
-        // Gọi hàm getProcessDetail sau khi set lại ProcessCode
-        if (this.state.selectedProcessCode) {
-          await this.getProcessDetail();
-        }
-      });
-    }
-
-    console.log('Dữ liệu cũ:', this.props.suggestionToEdit);
+    document.addEventListener('click', this.handleClickOutside);
 
     if (this.state.processDetails.length === 0) {
       this.setState({
@@ -206,7 +165,32 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       });
     }
 
+    if (this.props.suggestionToEdit) {
+      const { Title, Plan, Emergency, DateTime, Note, ProcessName } = this.props.suggestionToEdit;
 
+      // Cập nhật lại state với dữ liệu cũ
+      this.setState({
+        description: Title || '',
+        plan: Plan || '',
+        emergency: Emergency || '',
+        dateTime: DateTime || '',
+        note: Note || '',
+        processName: ProcessName || '',  // Lưu processName
+        selectedProcessCode: this.state.processes.find(p => p.ProcessName === ProcessName)?.ProcessCode
+      }, async () => {
+        // Gọi hàm getProcessDetail sau khi set lại ProcessCode
+        if (this.state.selectedProcessCode) {
+          await this.getProcessDetail();
+        }
+      });
+
+      if (this.props.suggestionToEdit && this.props.suggestionToEdit.Attachments) {
+        const files = this.props.suggestionToEdit.Attachments.map(attachment => {
+          return new File([], attachment.FileName);
+        });
+        this.setState({ files });
+      }
+    }
 
     if (!this.props.suggestionToEdit) {
       const listTitle = 'Suggest';
@@ -242,6 +226,41 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       }
     }
   }
+
+
+  componentWillUnmount(): void {
+    // Xóa sự kiện click khi component bị hủy
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+
+  handleClickOutside = (event: MouseEvent): void => {
+    const planDropdown = document.getElementById('planDropdown');
+    const planInput = document.getElementById('planInput');
+    const emergencyDropdown = document.getElementById('emergencyDropdown');
+    const emergencyInput = document.getElementById('emergencyInput');
+
+    // Kiểm tra xem click có nằm ngoài dropdown và input của từng field không
+    if (
+      this.state.showPlanOptions &&
+      planDropdown &&
+      planInput &&
+      !planDropdown.contains(event.target as Node) &&
+      !planInput.contains(event.target as Node)
+    ) {
+      this.setState({ showPlanOptions: false });
+    }
+
+    if (
+      this.state.showEmergencyOptions &&
+      emergencyDropdown &&
+      emergencyInput &&
+      !emergencyDropdown.contains(event.target as Node) &&
+      !emergencyInput.contains(event.target as Node)
+    ) {
+      this.setState({ showEmergencyOptions: false });
+    }
+  };
+
 
   // Thêm data vào Suggest list
   private async addSuggest(): Promise<void> {
@@ -316,7 +335,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
     try {
       const items = await sp.web.lists.getByTitle(listTitle).items
-        .select('Title', 'PlanName', 'PlanNote')();
+        .select('Title', 'PlanName', 'PlanNote') // Select required fields
+        ();
 
       const plans = items.map(item => ({
         title: item.Title,
@@ -324,22 +344,12 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
         planNote: item.PlanNote,
       }));
 
-      this.setState(prevState => {
-        // Kiểm tra nếu có dữ liệu plan từ `suggestionToEdit`
-        const existingPlan = plans.find(p => p.planName === prevState.plan);
-        return {
-          plans,
-          plan: existingPlan ? prevState.plan : '', // Chỉ giữ lại plan nếu nó tồn tại trong danh sách
-        };
-      });
-
-      console.log("Danh sách plans:", plans);
+      this.setState({ plans });
     } catch (error) {
       console.error('Error fetching plan data:', error);
       alert('Failed to fetch plan data: ' + error.message);
     }
   }
-
 
   //getdata Emergency
   private async getEmergency(): Promise<void> {
@@ -402,86 +412,6 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
       console.error('Error fetching users from site:', error);
     }
   };
-
-  private async getPermission(): Promise<void> {
-    const listTitle = 'Permission';
-    const sp = spfi().using(SPFx(this.props.context));
-
-    try {
-      const items = await sp.web.lists.getByTitle(listTitle).items
-        .select(
-          'Title', 'UserName/Id', 'UserName/Title', 'TitleTypePermission', 'Module', 'Run', 'Add', 'Modify',
-          'Delete', 'ApproveSuggestion')
-        .expand('UserName')();
-
-      const permission = items.map(item => ({
-        Title: String(item.Title),
-        UserName: Array.isArray(item.UserName)
-          ? item.UserName.map((user: { Id: number; Title: string }) => ({
-            Id: Number(user.Id),
-            Title: String(user.Title)
-          }))
-          : [],
-        TitleTypePermission: String(item.TitleTypePermission),
-        Module: String(item.Module),
-        Run: Boolean(item.Run),
-        Add: Boolean(item.Add),
-        Modify: Boolean(item.Modify),
-        Delete: Boolean(item.Delete),
-        ApproveSuggestion: Boolean(item.ApproveSuggestion),
-      }));
-
-      this.setState({ permission });
-      console.log('Permission trong add:', permission)
-    } catch (error) {
-      console.error('Error fetching Permission data:', error);
-      alert('Failed to fetch Permission data: ' + error.message);
-    }
-  }
-
-  private async getDepartment(): Promise<void> {
-    const listTitle = 'Departments';
-    const sp = spfi().using(SPFx(this.props.context));
-
-    try {
-      const items = await sp.web.lists.getByTitle(listTitle).items
-        .select('Title', 'NameDepartment',
-          'MemberOfDepartment/Id', 'MemberOfDepartment/Title',
-          'ManagerOfDepartment/Id', 'ManagerOfDepartment/Title',
-          'LeaderOfDepartment/Id', 'LeaderOfDepartment/Title',
-        )
-        .expand('MemberOfDepartment', 'ManagerOfDepartment', 'LeaderOfDepartment')();
-
-      const department = items.map(item => ({
-        Title: String(item.Title),
-        NameDepartment: String(item.NameDepartment),
-        MemberOfDepartment: Array.isArray(item.MemberOfDepartment)
-          ? item.MemberOfDepartment.map((user: { Id: number; Title: string }) => ({
-            Id: Number(user.Id),
-            Title: String(user.Title)
-          }))
-          : [],
-          ManagerOfDepartment: Array.isArray(item.ManagerOfDepartment)
-          ? item.ManagerOfDepartment.map((user: { Id: number; Title: string }) => ({
-            Id: Number(user.Id),
-            Title: String(user.Title)
-          }))
-          : [],
-          LeaderOfDepartment: Array.isArray(item.LeaderOfDepartment)
-          ? item.LeaderOfDepartment.map((user: { Id: number; Title: string }) => ({
-            Id: Number(user.Id),
-            Title: String(user.Title)
-          }))
-          : [],
-      }));
-
-      this.setState({ department });
-      console.log('department:', department)
-    } catch (error) {
-      console.error('Error fetching Permission data:', error);
-      alert('Failed to fetch Permission data: ' + error.message);
-    }
-  }
 
   // Auto save của các feild (k có file)
   private _inputChange = async (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): Promise<void> => {
@@ -920,6 +850,7 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
         }
       }
 
+      await this.getCommentForApprove();
       this.showSuccessNotification("Thêm thành công!"); // Show success notification
     } catch (error) {
       console.error('Error during addComment execution:', error);
@@ -969,7 +900,6 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
 
         // Update the state with the fetched process details
         this.setState({ commentData });
-        console.log('Dữ liệu lấy từ Commnet', commentData)
       } else {
         console.log("Không có dữ liệu từ Comment list.");
       }
@@ -1010,43 +940,13 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     return duplicateUsers;
   };
 
-  // Đã cập nhật dữ liệu nhưng chưa sửa, xóa được user mới
+  // Cập nhật hàm xử lý thay đổi người duyệt trong _renderProcessDetailsTable
   _renderProcessDetailsTable = (): JSX.Element => {
-    const { users, processDetails, commentToEdit, department } = this.state;
-
-
-     // Kiểm tra xem user có thuộc bộ phận nào không
-    // const currentUserDepartment = department.find(dept =>
-    //     Array.isArray(dept.MemberOfDepartment) &&
-    //     dept.MemberOfDepartment.some((member: { Id: number }) => member.Id === currentUserId)
-    // );
-
-    // Chuẩn bị danh sách tùy chọn người dùng
+    const { users, processDetails } = this.state;
     const userOptions = users.map((user) => ({
       value: user.value.toString(),
       label: user.label,
     }));
-
-    // Khởi tạo processDetails với approvers
-    const processDetailsWithApprovers = processDetails.map((detail) => {
-      // Nếu có dữ liệu từ commentToEdit thì cập nhật vào processDetails
-      const approversFromComments =
-        commentToEdit?.find(
-          (comment) =>
-            comment.ProcessTitle === detail.title &&
-            comment.ProcessNumberOfApprover === detail.numberOfApproval
-        )?.ProcessApprover.map((approver) => {
-          const matchedUser = userOptions.find(
-            (user) => user.label === approver.Title
-          );
-          return matchedUser?.value || "";
-        }) || [];
-
-      return {
-        ...detail,
-        approver: approversFromComments.length > 0 ? approversFromComments : detail.approver,
-      };
-    });
 
     return (
       <form className={styles.tableContainer}>
@@ -1059,7 +959,7 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
             </tr>
           </thead>
           <tbody>
-            {processDetailsWithApprovers.map((detail, index) => (
+            {processDetails.map((detail, index) => (
               <tr key={index}>
                 <td>{detail.title}</td>
                 <td>{detail.numberOfApproval}</td>
@@ -1074,13 +974,13 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                     onChange={(selectedOptions) => {
                       const options = selectedOptions || [];
 
-                      // ✅ Kiểm tra nếu là cấp duyệt số và có nhiều hơn 1 người được chọn
+                      // Kiểm tra nếu là cấp duyệt số và có nhiều hơn 1 người được chọn
                       if (!isNaN(Number(detail.numberOfApproval)) && options.length > 1) {
                         alert(`Cấp duyệt ${detail.numberOfApproval} chỉ được phép chọn 1 người duyệt`);
                         return;
                       }
 
-                      // ✅ Kiểm tra user trùng lặp giữa các cấp duyệt
+                      // Kiểm tra user trùng lặp
                       const duplicateUsers = this.checkDuplicateUserAcrossLevels(
                         [...options],
                         detail.numberOfApproval,
@@ -1095,19 +995,7 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                         return;
                       }
 
-                      // ✅ Kiểm tra nếu user được chọn không thuộc cùng bộ phận
-                      const selectedUserOutOfDepartment = options.some(userOption => {
-                        return !department.some(dept =>
-                          Array.isArray(dept.MemberOfDepartment) &&
-                          dept.MemberOfDepartment.some((member: { Id: number }) => member.Id.toString() === userOption.value)
-                        );
-                      });
-
-                      if (selectedUserOutOfDepartment) {
-                        alert('⚠ Bạn đang chọn nhân viên ở phòng ban khác!');
-                      }
-
-                      // ✅ Cập nhật state với người được chọn
+                      // Nếu không có trùng lặp, cập nhật state
                       this.setState((prevState) => {
                         const updatedProcessDetails = prevState.processDetails.map((item, i) =>
                           i === index ? { ...item, approver: options.map(opt => opt.value) } : item
@@ -1144,13 +1032,47 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
     );
   };
 
+  public async getCommentForApprove(): Promise<void> {
+    const sp = spfi().using(SPFx(this.props.context));
+
+    try {
+      const commentItems = await sp.web.lists.getByTitle('Comment').items
+        .select('Id', 'Title', 'SuggestName', 'ProcessTitle', 'ProcessNumberOfApprover', 'ProcessApprover/Title', 'isApprove', 'CommentApprover')
+        .expand('ProcessApprover')();
+
+      if (commentItems.length > 0) {
+        const commentDataApprove = commentItems.map(item => ({
+          Id: item.Id,
+          Title: item.Title,
+          SuggestName: item.SuggestName,
+          ProcessTitle: item.ProcessTitle,
+          ProcessNumberOfApprover: item.ProcessNumberOfApprover,
+          ProcessApprover: item.ProcessApprover.map((approver: { Title: string }) => ({ Title: approver.Title })),
+          isApprove: item.isApprove,
+          CommentApprover: item.CommentApprover
+        }));
+
+        this.setState({ commentDataApprove });
+      } else {
+        console.log("No comments found in the Comment list.");
+      }
+    } catch (error) {
+      console.error("Error fetching comment data:", error.message);
+    }
+  }
+
   public render(): React.ReactElement<ISuggestionAddProps> {
     const processOptions = this.state.processes.map((process) => ({
       value: process.ProcessCode,   // Dùng ProcessCode cho value
       label: process.ProcessName,   // Dùng ProcessName cho nhãn
       title: process.ProcessName,
     }));
+    console.log("Received commentToEdit in SuggestionAdd:", this.props.commentToEdit);
 
+    const planOptions = this.state.plans.map(plan => ({
+      value: plan.planName,
+      label: plan.planName,
+    }));
 
     const emergencyOptions = this.state.emergencies.map(emergency => ({
       value: emergency.EmergencyName,
@@ -1201,8 +1123,8 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                   <label className={styles.label}>
                     Kế hoạch:
                     <Select
-                      options={this.state.plans.map(plan => ({ value: plan.planName, label: plan.planName }))}
-                      value={this.state.plan ? { value: this.state.plan, label: this.state.plan } : null} // Nếu giá trị không hợp lệ, Select sẽ reset
+                      options={planOptions}
+                      value={planOptions.find(option => option.value === this.state.plan)}
                       onChange={(selectedOption) => this.setState({ plan: selectedOption?.value })}
                       placeholder="Chọn kế hoạch"
                     />
@@ -1326,14 +1248,14 @@ export default class SuggestionAdd extends React.Component<ISuggestionAddProps, 
                   </label>
                 </div>
                 <div className={styles.commentContainer}>
-                  {this.state.Status === 'Staff' && (
-                    <ShowCommentSuggest
-                      user={{ name: 'User Name', avatarUrl: 'path_to_avatar.png' }}
-                      comment="Đây là comment mẫu"
-                      isLoading={false} // Bạn có thể thay đổi điều kiện này tùy theo logic
-                    />
-                  )}
-                </div>
+                {this.state.Status === 'Staff' && (
+                  <ShowCommentSuggest
+                    user={{ name: 'User Name', avatarUrl: 'path_to_avatar.png' }}
+                    comment="Đây là comment mẫu"
+                    isLoading={false} // Bạn có thể thay đổi điều kiện này tùy theo logic
+                  />
+                )}
+              </div>
               </div>
             </div>
           )}
